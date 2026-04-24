@@ -1,0 +1,6 @@
+run = "npm run dev -- --host 0.0.0.0"
+[nix]
+channel = "stable-23_11"
+[[ports]]
+localPort = 3000
+externalPort = 80

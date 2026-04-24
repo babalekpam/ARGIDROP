@@ -1,0 +1,22 @@
+modules = ["nodejs-20"]
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[userenv]
+
+[userenv.shared]
+PORT = "3000"
+NODE_ENV = "development"
+PLATFORM_COMMISSION = "18"
+DEFAULT_CURRENCY = "XOF"
+DEFAULT_COUNTRY = "TG"
+PICKUP_GPS_TOLERANCE_M = "200"
+DELIVERY_GPS_TOLERANCE_M = "150"
+PAYMENT_CODE_TTL_MINS = "15"
+PICKUP_CODE_TTL_MINS = "120"
+MERCHANT_MONTHLY_FEE = "10000"
+AT_USERNAME = "sandbox"
+AT_SENDER_ID = "ARGIDROP"

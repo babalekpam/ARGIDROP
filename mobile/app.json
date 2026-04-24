@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "ArgiDrop Driver",
+    "slug": "argidrop-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F3EB"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.argilette.argidrop.driver"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1B4332"
+      },
+      "package": "com.argilette.argidrop.driver",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "ArgiDrop needs your location to match you with nearby delivery jobs." }],
+      ["expo-camera", { "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery." }],
+      ["expo-barcode-scanner", { "cameraPermission": "ArgiDrop needs camera access to scan delivery QR codes." }],
+      ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#1B4332" }]
+    ],
+    "extra": {
+      "eas": { "projectId": "YOUR_EAS_PROJECT_ID" }
+    }
+  }
+}
