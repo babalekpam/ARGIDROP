@@ -7,7 +7,7 @@ const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47'
 
 export default function Register() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [form, setForm] = useState({ firstName:'', lastName:'', email:'', phone:'', password:'', role:'BUSINESS' });
   const [loading, setLoading] = useState(false);
 
@@ -18,15 +18,12 @@ export default function Register() {
     if (form.password.length < 8) return toast.error('Password must be at least 8 characters');
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Registration failed');
-      login(data.tokens.access, data.user);
+      const user = await register(form);
       toast.success('Account created');
-      navigate(form.role === 'BUSINESS' ? '/onboarding' : '/dashboard');
-    } catch (err) { toast.error(err.message); }
+      navigate(user.role === 'BUSINESS' ? '/onboarding' : '/dashboard');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Registration failed');
+    }
     finally { setLoading(false); }
   };
 
