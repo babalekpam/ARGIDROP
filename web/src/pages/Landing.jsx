@@ -48,13 +48,12 @@ export default function Landing() {
 
       {/* Stats */}
       <div style={{ maxWidth:900, margin:'0 auto 64px', padding:'0 40px' }}>
-        <div style={{ background:C.paper, border:`1px solid ${C.border}`, borderRadius:8, display:'grid', gridTemplateColumns:'repeat(3,1fr)', overflow:'hidden' }}>
+        <div style={{ background:C.paper, border:`1px solid ${C.border}`, borderRadius:8, display:'grid', gridTemplateColumns:'repeat(2,1fr)', overflow:'hidden' }}>
           {[
             ['15 min', 'Average time to match a driver'],
-            ['18%', 'Platform commission — the rest is yours'],
             ['3 scans', 'QR-verified chain of custody per delivery'],
           ].map(([v, l], i) => (
-            <div key={v} style={{ padding:'28px 32px', textAlign:'center', borderRight:i<2?`1px solid ${C.borderSoft}`:'none' }}>
+            <div key={v} style={{ padding:'28px 32px', textAlign:'center', borderRight:i<1?`1px solid ${C.borderSoft}`:'none' }}>
               <div style={{ fontFamily:'Fraunces, serif', fontSize:36, fontWeight:500, color:C.forest, letterSpacing:'-0.02em', lineHeight:1 }}>{v}</div>
               <div style={{ fontSize:13, color:C.muted, marginTop:10, lineHeight:1.5 }}>{l}</div>
             </div>
