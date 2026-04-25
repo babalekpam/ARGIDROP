@@ -2,14 +2,13 @@
 //
 // Security model: anyone with the trackingToken can read non-sensitive
 // progress info for a delivery. To minimize impact of a leaked token:
-//   - Driver real-time GPS is exposed ONLY while the job is in flight
-//     (MATCHED or IN_TRANSIT). After delivery/cancellation/dispute we
-//     omit lat/lng entirely so a stale token cannot be used to track
-//     the driver's life.
+//   - Exact pickup/dropoff addresses are never returned; only city is exposed.
+//   - Driver real-time GPS is never exposed on this public endpoint.
 //   - Vehicle plate is redacted (PII).
-//   - Raw S3 URLs are never returned; we expose a `hasDeliveryProof`
-//     boolean instead. The business retrieves a 15-min signed URL via
-//     the authenticated /jobs/:id/proof endpoint.
+//   - Driver details are hidden once the job is delivered/completed.
+//   - A hasDeliveryProof boolean is returned post-delivery instead of the raw
+//     photo URL; the business fetches a signed URL via the authenticated
+//     /jobs/:id/proof endpoint.
 //   - This router is rate-limited at the server level (see server.js).
 
 const express = require('express');
@@ -18,8 +17,6 @@ const { getDB } = require('../config/database');
 const { jobs, drivers, users } = require('../schema');
 
 const router = express.Router();
-
-const ACTIVE_STATUSES = new Set(['MATCHED', 'IN_TRANSIT']);
 
 router.get('/:token', async (req, res, next) => {
   try {
@@ -37,7 +34,7 @@ router.get('/:token', async (req, res, next) => {
     }
 
     const { job, driver, driverUser } = result;
-    const isActive = ACTIVE_STATUSES.has(job.status);
+    const isDelivered = job.status === 'DELIVERED' || job.status === 'COMPLETED';
 
     res.json({
       success: true,
@@ -45,26 +42,17 @@ router.get('/:token', async (req, res, next) => {
         jobId: job.id,
         status: job.status,
         urgency: job.urgency,
-        pickupAddress: job.pickupAddress,
-        dropoffAddress: job.dropoffAddress,
+        dropoffCity: job.dropoffCity,
         estimatedDurationMins: job.estimatedDurationMins,
         matchedAt: job.matchedAt,
         pickedUpAt: job.pickedUpAt,
         deliveredAt: job.deliveredAt,
         hasDeliveryProof: Boolean(job.deliveryProofUrl),
-        driver: driver ? {
+        driver: driver && !isDelivered ? {
           firstName: driverUser?.firstName,
           rating: driver.rating,
           vehicleType: driver.vehicleType,
-          vehicleMake: driver.vehicleMake,
-          vehicleModel: driver.vehicleModel,
           vehicleColor: driver.vehicleColor,
-          // GPS only while delivery is in progress
-          ...(isActive ? {
-            currentLat: driver.currentLat,
-            currentLng: driver.currentLng,
-            lastLocationAt: driver.lastLocationAt,
-          } : {}),
         } : null
       }
     });

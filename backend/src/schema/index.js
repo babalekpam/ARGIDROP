@@ -266,6 +266,8 @@ const jobs = pgTable('jobs', {
   // DELIVERY QR (Scan #3 - driver confirms dropoff)
   deliveryCode: uuid('delivery_code'),
   deliveryCodeGeneratedAt: timestamp('delivery_code_generated_at'),
+  // recipientSecret is the actual QR authorization secret — separate from the public deliveryCode URL token
+  recipientSecret: uuid('recipient_secret'),
   deliveryScannedAt: timestamp('delivery_scanned_at'),
   deliveryScanLat: decimal('delivery_scan_lat', { precision: 10, scale: 7 }),
   deliveryScanLng: decimal('delivery_scan_lng', { precision: 10, scale: 7 }),

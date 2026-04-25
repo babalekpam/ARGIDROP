@@ -26,6 +26,7 @@ export default function Track() {
   );
 
   const currentStep = STATUS_STEPS.indexOf(data.status);
+  const isDelivered = data.status === 'DELIVERED' || data.status === 'COMPLETED';
 
   return (
     <div style={{minHeight:'100vh',background:C.bg,fontFamily:'Inter, sans-serif',color:C.txt}}>
@@ -41,12 +42,13 @@ export default function Track() {
 
       <div style={{maxWidth:600,margin:'0 auto',padding:'32px 24px'}}>
         {/* Status header */}
-        <div style={{background: data.status==='DELIVERED'?'rgba(22,163,74,0.08)':C.surface, border:`1px solid ${data.status==='DELIVERED'?'rgba(22,163,74,0.3)':C.border}`, borderRadius:14, padding:'24px', marginBottom:20, textAlign:'center'}}>
+        <div style={{background: isDelivered?'rgba(22,163,74,0.08)':C.surface, border:`1px solid ${isDelivered?'rgba(22,163,74,0.3)':C.border}`, borderRadius:14, padding:'24px', marginBottom:20, textAlign:'center'}}>
           <div style={{fontSize:40, marginBottom:12}}>
-            {data.status==='DELIVERED'?'✅':data.status==='IN_TRANSIT'?'🚗':data.status==='MATCHED'?'🧑‍✈️':'⏳'}
+            {isDelivered?'✅':data.status==='IN_TRANSIT'?'🚗':data.status==='MATCHED'?'🧑‍✈️':'⏳'}
           </div>
-          <h1 style={{fontFamily:'Plus Jakarta Sans',fontSize:22,fontWeight:800,marginBottom:6,color:data.status==='DELIVERED'?C.green:C.txt}}>{STATUS_LABELS[data.status]||data.status}</h1>
+          <h1 style={{fontFamily:'Plus Jakarta Sans',fontSize:22,fontWeight:800,marginBottom:6,color:isDelivered?C.green:C.txt}}>{STATUS_LABELS[data.status]||data.status}</h1>
           {data.status==='IN_TRANSIT'&&<p style={{fontSize:13,color:C.muted}}>Your package is on its way</p>}
+          {data.dropoffCity&&<p style={{fontSize:13,color:C.muted,marginTop:4}}>Destination: {data.dropoffCity}</p>}
         </div>
 
         {/* Progress */}
@@ -66,36 +68,17 @@ export default function Track() {
           </div>
         </div>
 
-        {/* Route */}
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:13,padding:20,marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.dim,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:14}}>Route</div>
-          <div style={{display:'flex',gap:14,marginBottom:14,paddingBottom:14,borderBottom:`1px dashed ${C.border}`}}>
-            <div style={{width:28,height:28,borderRadius:8,background:`${C.blue}15`,border:`1px solid ${C.blue}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>📍</div>
-            <div><div style={{fontSize:10,color:C.dim,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:3}}>Pickup</div><div style={{fontSize:13,fontWeight:500}}>{data.pickupAddress}</div></div>
-          </div>
-          <div style={{display:'flex',gap:14}}>
-            <div style={{width:28,height:28,borderRadius:8,background:`${C.orange}15`,border:`1px solid ${C.orange}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>🎯</div>
-            <div><div style={{fontSize:10,color:C.dim,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:3}}>Dropoff</div><div style={{fontSize:13,fontWeight:500}}>{data.dropoffAddress}</div></div>
-          </div>
-        </div>
-
-        {/* Driver */}
-        {data.driver&&(
+        {/* Driver — only shown while in transit */}
+        {data.driver&&!isDelivered&&(
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:13,padding:20,marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:C.dim,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Your Driver</div>
             <div style={{display:'flex',gap:14,alignItems:'center'}}>
               <div style={{width:44,height:44,borderRadius:12,background:'rgba(37,99,235,0.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🚗</div>
               <div>
                 <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{data.driver.firstName}</div>
-                <div style={{fontSize:12,color:C.dim}}>⭐ {data.driver.rating||'5.0'} · {data.driver.vehicleColor||''} {data.driver.vehicleMake||''} {data.driver.vehicleModel||''}</div>
-                <div style={{fontSize:12,color:C.muted,marginTop:2}}>{data.driver.vehiclePlate}</div>
+                <div style={{fontSize:12,color:C.dim}}>⭐ {data.driver.rating||'5.0'} · {data.driver.vehicleColor||''} {vehicleLabel(data.driver.vehicleType)}</div>
               </div>
             </div>
-            {data.driver.currentLat&&(
-              <div style={{marginTop:12,background:'rgba(22,163,74,0.08)',border:'1px solid rgba(22,163,74,0.2)',borderRadius:8,padding:'9px 13px',fontSize:12,color:C.green}}>
-                🟢 Driver location last updated: {data.driver.lastLocationAt?new Date(data.driver.lastLocationAt).toLocaleTimeString():'—'}
-              </div>
-            )}
           </div>
         )}
 
@@ -115,4 +98,9 @@ export default function Track() {
       </div>
     </div>
   );
+}
+
+function vehicleLabel(type) {
+  const map = { BICYCLE: 'Bicycle', MOTORCYCLE: 'Motorcycle', TRICYCLE: 'Tricycle', CAR: 'Car', VAN: 'Van', TRUCK: 'Truck' };
+  return map[type] || type || '';
 }

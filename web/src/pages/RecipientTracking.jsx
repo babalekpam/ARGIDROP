@@ -1,18 +1,23 @@
 // Public recipient tracking page — accessed via SMS link
-// Shows the delivery QR the recipient displays to the driver at dropoff
+// QR is only revealed after PIN verification (last 4 digits of recipient phone)
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../utils/api';
 
-const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', forestSoft: '#2D5E3E', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', borderSoft: '#EFE8D7' };
+const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', forestSoft: '#2D5E3E', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', borderSoft: '#EFE8D7', error: '#B91C1C' };
 
 export default function RecipientTracking() {
   const { deliveryCode } = useParams();
   const [data, setData] = useState(null);
-  const [driverLocation, setDriverLocation] = useState(null);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
+
+  const [pin, setPin] = useState('');
+  const [qrImage, setQrImage] = useState(null);
+  const [pinError, setPinError] = useState(null);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinVerified, setPinVerified] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -26,16 +31,29 @@ export default function RecipientTracking() {
     };
     load();
 
-    // Connect to socket for live updates (no auth needed for public tracking)
     const socket = io(import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000');
     socket.emit('join:tracking', deliveryCode);
-    socket.on('driver:location', (loc) => setDriverLocation(loc));
     socket.on('job:status_change', ({ status }) => {
       setStatus(status);
       load();
     });
     return () => socket.disconnect();
   }, [deliveryCode]);
+
+  const handleVerifyPin = async (e) => {
+    e.preventDefault();
+    setPinError(null);
+    setPinLoading(true);
+    try {
+      const res = await api.post(`/scans/r/${deliveryCode}/verify`, { pin });
+      setQrImage(res.data.qrImage);
+      setPinVerified(true);
+    } catch (err) {
+      setPinError(err.response?.data?.message || 'Verification failed. Please try again.');
+    } finally {
+      setPinLoading(false);
+    }
+  };
 
   if (error) return (
     <div style={s.errorWrap}>
@@ -89,26 +107,58 @@ export default function RecipientTracking() {
           )}
         </div>
 
-        {/* The QR to show the driver */}
+        {/* QR section — gated behind PIN */}
         {!isDelivered && (
           <div style={s.qrCard}>
             <div style={{ fontSize: 11, color: C.bronze, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>À la livraison</div>
             <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, fontWeight: 500, marginBottom: 14, color: C.ink }}>
               Montrez ce QR au livreur
             </div>
-            {data.qrImage ? (
-              <img src={data.qrImage} alt="Delivery QR" style={{ width: '85%', maxWidth: 320, margin: '0 auto', display: 'block' }} />
+
+            {pinVerified && qrImage ? (
+              <>
+                <img src={qrImage} alt="Delivery QR" style={{ width: '85%', maxWidth: 320, margin: '0 auto', display: 'block' }} />
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 16, lineHeight: 1.5 }}>
+                  Le livreur scannera ce code pour confirmer votre livraison. Une fois scanné, le paiement est automatiquement débloqué.
+                </div>
+              </>
+            ) : data.requiresPin ? (
+              <form onSubmit={handleVerifyPin} style={{ marginTop: 8 }}>
+                <p style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+                  Entrez les 4 derniers chiffres de votre numéro de téléphone pour afficher votre QR de livraison.
+                </p>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  placeholder="_ _ _ _"
+                  value={pin}
+                  onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  style={s.pinInput}
+                  autoComplete="off"
+                />
+                {pinError && (
+                  <div style={{ fontSize: 12, color: C.error, marginTop: 8 }}>{pinError}</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={pin.length !== 4 || pinLoading}
+                  style={{ ...s.pinBtn, opacity: pin.length !== 4 || pinLoading ? 0.5 : 1 }}
+                >
+                  {pinLoading ? 'Vérification…' : 'Afficher mon QR'}
+                </button>
+              </form>
             ) : (
-              <div style={{ width: 280, height: 280, margin: '0 auto', background: C.cream, border: `1px dashed ${C.border}` }} />
+              <div style={{ fontSize: 13, color: C.muted, padding: '12px 0', lineHeight: 1.6 }}>
+                Le QR de livraison n'est pas disponible pour cette commande. Contactez l'expéditeur pour plus d'informations.
+              </div>
             )}
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 16, lineHeight: 1.5 }}>
-              Le livreur scannera ce code pour confirmer votre livraison. Une fois scanné, le paiement est automatiquement débloqué.
-            </div>
           </div>
         )}
 
         {/* Driver card */}
-        {data.driver && (
+        {data.driver && !isDelivered && (
           <div style={s.driverCard}>
             <div style={{ fontSize: 10, color: C.bronze, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>Votre livreur</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -122,35 +172,25 @@ export default function RecipientTracking() {
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
                   {data.driver.rating ? `${parseFloat(data.driver.rating).toFixed(1)} ★ · ` : ''}
                   {vehicleLabel(data.driver.vehicleType)}
-                  {data.driver.vehicleMake ? ` · ${data.driver.vehicleMake} ${data.driver.vehicleModel || ''}` : ''}
+                  {data.driver.vehicleColor ? ` · ${data.driver.vehicleColor}` : ''}
                 </div>
-                {data.driver.vehiclePlate && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.ink, background: C.cream, padding: '3px 8px', borderRadius: 3, display: 'inline-block', marginTop: 6, letterSpacing: '0.06em', border: `1px solid ${C.border}` }}>
-                    {data.driver.vehiclePlate}
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Addresses */}
-        <div style={s.addressCard}>
-          <div style={{ display: 'flex', gap: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
-            <div style={{ width: 3, background: C.bronze, borderRadius: 2, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500 }}>Point de retrait</div>
-              <div style={{ fontSize: 13, color: C.ink, marginTop: 4, lineHeight: 1.4 }}>{data.pickupAddress}</div>
+        {/* Dropoff city */}
+        {data.dropoffCity && (
+          <div style={s.addressCard}>
+            <div style={{ display: 'flex', gap: 14 }}>
+              <div style={{ width: 3, background: C.forest, borderRadius: 2, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500 }}>Ville de livraison</div>
+                <div style={{ fontSize: 13, color: C.ink, marginTop: 4, lineHeight: 1.4 }}>{data.dropoffCity}</div>
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 14, paddingTop: 14 }}>
-            <div style={{ width: 3, background: C.forest, borderRadius: 2, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500 }}>Votre adresse</div>
-              <div style={{ fontSize: 13, color: C.ink, marginTop: 4, lineHeight: 1.4 }}>{data.dropoffAddress}</div>
-            </div>
-          </div>
-        </div>
+        )}
 
         <div style={s.footer}>
           Powered by <span style={{ fontFamily: 'Fraunces, serif', color: C.forest, fontWeight: 500 }}>ArgiDrop</span>
@@ -179,4 +219,6 @@ const s = {
   errorWrap: { minHeight: '100vh', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'Inter, sans-serif' },
   errorCard: { background: C.paper, border: `1px solid ${C.border}`, borderRadius: 8, padding: 32, textAlign: 'center', maxWidth: 400 },
   errorTitle: { fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 500, color: C.ink, margin: '12px 0 8px' },
+  pinInput: { width: '100%', maxWidth: 160, fontSize: 28, fontFamily: 'monospace', letterSpacing: '0.4em', textAlign: 'center', padding: '12px 8px', border: `1px solid ${C.border}`, borderRadius: 6, background: C.cream, color: C.ink, outline: 'none', boxSizing: 'border-box' },
+  pinBtn: { marginTop: 16, width: '100%', maxWidth: 240, padding: '12px 0', background: C.forest, color: C.paper, border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' },
 };

@@ -76,12 +76,12 @@ router.post('/pickup', authenticate, requireRole('DRIVER'), async (req, res, nex
     io.to(`job:${jobId}`).emit('job:status_change', { jobId, status: 'IN_TRANSIT', pickupConfirmed: true });
     io.to(`business:${job.businessId}`).emit('job:picked_up', { jobId });
 
-    // SMS recipient with tracking link
+    // SMS recipient with tracking link — PIN hint is NOT co-disclosed with the link
     if (job.dropoffContactPhone) {
       const trackUrl = `${process.env.WEB_URL}/r/${job.deliveryCode}`;
       const msg = job.dropoffContactName
-        ? `Bonjour ${job.dropoffContactName}, votre colis ArgiDrop est en route. Suivez-le et montrez votre QR au livreur: ${trackUrl}`
-        : `Votre colis ArgiDrop est en route. Suivez-le et montrez votre QR au livreur: ${trackUrl}`;
+        ? `Bonjour ${job.dropoffContactName}, votre colis ArgiDrop est en route. Suivez ici: ${trackUrl} — Pour afficher votre QR de livraison, entrez les 4 derniers chiffres de votre numéro de téléphone.`
+        : `Votre colis ArgiDrop est en route. Suivez ici: ${trackUrl} — Pour afficher votre QR de livraison, entrez les 4 derniers chiffres de votre numéro de téléphone.`;
       await sendSMS(job.dropoffContactPhone, msg).catch(err => console.error('SMS failed:', err.message));
     }
 
@@ -94,19 +94,25 @@ router.post('/pickup', authenticate, requireRole('DRIVER'), async (req, res, nex
   }
 });
 
+// Per-delivery PIN attempt tracking: { attempts, lockedUntil }
+const pinAttemptStore = new Map();
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+function getPinState(deliveryCode) {
+  const state = pinAttemptStore.get(deliveryCode) || { attempts: 0, lockedUntil: null };
+  if (state.lockedUntil && Date.now() > state.lockedUntil) {
+    state.attempts = 0;
+    state.lockedUntil = null;
+  }
+  return state;
+}
+
 /**
  * GET /scans/r/:deliveryCode
- * Public recipient-facing endpoint — returns tracking info + QR for recipient to display.
- *
- * Security:
- *  - Driver real-time GPS is exposed only while job is IN_TRANSIT (the only
- *    state in which the driver is actually heading to the recipient). Once
- *    delivered/cancelled/disputed, lat/lng are omitted so a stale link
- *    cannot be used to track the driver.
- *  - Vehicle plate is redacted (PII).
- *  - The recipient QR is only generated while the code is actually scannable
- *    (status IN_TRANSIT). Otherwise we return qrActive:false.
- *  - Rate-limited at the server level (see server.js).
+ * Public recipient-facing endpoint — returns delivery status and coarse location only.
+ * Exact addresses, driver GPS, vehicle plate, and QR are never returned.
+ * QR is only available after PIN verification via POST /scans/r/:deliveryCode/verify.
  */
 router.get('/r/:deliveryCode', async (req, res, next) => {
   try {
@@ -125,41 +131,89 @@ router.get('/r/:deliveryCode', async (req, res, next) => {
     if (!result) return res.status(404).json({ success: false, message: 'Tracking info not found' });
     const { job, driver, driverUser } = result;
 
-    const qrActive = job.status === 'IN_TRANSIT';
-    let qrPayload = null;
-    let qrImage = null;
-    if (qrActive) {
-      qrPayload = JSON.stringify({ type: 'DELIVERY', jobId: job.id, code: job.deliveryCode, v: 1 });
-      qrImage = await QRCode.toDataURL(qrPayload, { width: 400, margin: 2, color: { dark: '#1B4332', light: '#FDFBF6' } });
-    }
+    const isDelivered = job.status === 'DELIVERED' || job.status === 'COMPLETED';
 
     res.json({
       success: true,
       tracking: {
-        jobId: job.id,
         status: job.status,
-        pickupAddress: job.pickupAddress,
-        dropoffAddress: job.dropoffAddress,
+        dropoffCity: job.dropoffCity,
         pickedUpAt: job.pickedUpAt,
         deliveredAt: job.deliveredAt,
-        qrActive,
-        qrPayload,
-        qrImage,
-        driver: driver ? {
+        requiresPin: !!(job.dropoffContactPhone),
+        driver: driver && !isDelivered ? {
           firstName: driverUser?.firstName,
-          rating: driver.rating,
           vehicleType: driver.vehicleType,
-          vehicleMake: driver.vehicleMake,
-          vehicleModel: driver.vehicleModel,
           vehicleColor: driver.vehicleColor,
-          // GPS only while delivery is active
-          ...(qrActive ? {
-            currentLat: driver.currentLat,
-            currentLng: driver.currentLng,
-          } : {}),
+          rating: driver.rating,
         } : null
       }
     });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /scans/r/:deliveryCode/verify
+ * Recipient enters PIN (last 4 digits of their phone) to unlock the delivery QR.
+ * Protected by per-delivery attempt limiting (5 attempts, 15-min lockout).
+ * QR uses recipientSecret (private, never in any URL) — not the public deliveryCode token.
+ * QR is refused when no recipient phone is registered on the job.
+ */
+router.post('/r/:deliveryCode/verify', async (req, res, next) => {
+  try {
+    const { deliveryCode } = req.params;
+    const { pin } = req.body;
+    if (!pin) return res.status(400).json({ success: false, message: 'PIN is required' });
+
+    const pinState = getPinState(deliveryCode);
+    if (pinState.lockedUntil) {
+      const waitMins = Math.ceil((pinState.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({ success: false, message: `Too many incorrect attempts. Please try again in ${waitMins} minute(s).` });
+    }
+
+    const db = getDB();
+    const [result] = await db.select({ job: jobs })
+      .from(jobs)
+      .where(eq(jobs.deliveryCode, deliveryCode))
+      .limit(1);
+
+    if (!result) return res.status(404).json({ success: false, message: 'Tracking info not found' });
+    const { job } = result;
+
+    if (job.status === 'DELIVERED' || job.status === 'COMPLETED') {
+      return res.status(400).json({ success: false, message: 'This delivery has already been completed' });
+    }
+
+    if (!job.dropoffContactPhone) {
+      return res.status(403).json({ success: false, message: 'Delivery QR is not available for this order. Please contact support.' });
+    }
+
+    const normalised = job.dropoffContactPhone.replace(/\D/g, '');
+    const expectedPin = normalised.slice(-4);
+    if (String(pin).replace(/\D/g, '') !== expectedPin) {
+      pinState.attempts += 1;
+      if (pinState.attempts >= PIN_MAX_ATTEMPTS) {
+        pinState.lockedUntil = Date.now() + PIN_LOCKOUT_MS;
+      }
+      pinAttemptStore.set(deliveryCode, pinState);
+      const remaining = PIN_MAX_ATTEMPTS - pinState.attempts;
+      const msg = remaining > 0
+        ? `Incorrect PIN. ${remaining} attempt(s) remaining.`
+        : 'Too many incorrect attempts. Please try again in 15 minutes.';
+      return res.status(403).json({ success: false, message: msg });
+    }
+
+    pinAttemptStore.delete(deliveryCode);
+
+    if (!job.recipientSecret) {
+      return res.status(503).json({ success: false, message: 'Delivery QR is not yet available. Please wait for the driver to pick up the package.' });
+    }
+
+    // QR payload uses recipientSecret (private, never in any URL) — not deliveryCode (public URL token)
+    const qrPayload = JSON.stringify({ type: 'DELIVERY', jobId: job.id, code: job.recipientSecret, v: 1 });
+    const qrImage = await QRCode.toDataURL(qrPayload, { width: 400, margin: 2, color: { dark: '#1B4332', light: '#FDFBF6' } });
+
+    res.json({ success: true, qrImage });
   } catch (err) { next(err); }
 });
 

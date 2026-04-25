@@ -115,8 +115,9 @@ async function scanPickupCode({ jobId, scannedCode, scannedByUserId, gps, device
     }
   }
 
-  // ALL CHECKS PASSED — update job status and generate delivery code
+  // ALL CHECKS PASSED — update job status and generate delivery code + separate recipient secret
   const deliveryCode = uuidv4();
+  const recipientSecret = uuidv4(); // Authorization secret for delivery QR — never exposed in public URLs
   const now = new Date();
   await db.update(jobs).set({
     status: 'IN_TRANSIT',
@@ -125,6 +126,7 @@ async function scanPickupCode({ jobId, scannedCode, scannedByUserId, gps, device
     pickupScanLng: gps?.lng,
     pickedUpAt: now,
     deliveryCode,
+    recipientSecret,
     deliveryCodeGeneratedAt: now,
     updatedAt: now
   }).where(eq(jobs.id, jobId));
@@ -159,7 +161,8 @@ async function scanDeliveryCode({ jobId, scannedCode, scannedByUserId, gps, devi
     throw new ScanError('INVALID_STATUS', `Cannot scan delivery — job is ${job.status}. Did you confirm pickup?`);
   }
 
-  if (!job.deliveryCode || job.deliveryCode !== scannedCode) {
+  // Validate against recipientSecret (the private QR authorization value, not the public URL token)
+  if (!job.recipientSecret || job.recipientSecret !== scannedCode) {
     await logScanEvent({ jobId, scanType: 'DELIVERY', scannedByUserId, scannedCode, gps, success: false, failureReason: 'Invalid delivery code', deviceInfo, ipAddress });
     throw new ScanError('INVALID_CODE', 'The scanned code is invalid');
   }
