@@ -1,13 +1,22 @@
-const AWS = require('aws-sdk');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl: presignerGetSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+const s3Config = {
   region: process.env.AWS_REGION || 'us-east-1',
-  ...(process.env.R2_ENDPOINT ? { endpoint: process.env.R2_ENDPOINT, signatureVersion: 'v4' } : {})
-});
+  credentials: process.env.AWS_ACCESS_KEY_ID
+    ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      }
+    : undefined,
+  ...(process.env.R2_ENDPOINT
+    ? { endpoint: process.env.R2_ENDPOINT, forcePathStyle: true }
+    : {}),
+};
+
+const s3 = new S3Client(s3Config);
 
 async function uploadFile(file, folder = 'general') {
   if (!process.env.AWS_S3_BUCKET) {
@@ -19,24 +28,30 @@ async function uploadFile(file, folder = 'general') {
   const ext = path.extname(file.originalname);
   const key = `${folder}/${uuidv4()}${ext}`;
 
-  const params = {
-    Bucket: process.env.AWS_S3_BUCKET,
-    Key: key,
-    Body: file.buffer,
-    ContentType: file.mimetype,
-    ACL: 'private'
-  };
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: 'private',
+    })
+  );
 
-  const result = await s3.upload(params).promise();
-  return result.Location;
+  // Mirror v2 behavior: return the canonical S3 URL.
+  if (process.env.R2_ENDPOINT) {
+    return `${process.env.R2_ENDPOINT.replace(/\/$/, '')}/${process.env.AWS_S3_BUCKET}/${key}`;
+  }
+  const region = s3Config.region;
+  return `https://${process.env.AWS_S3_BUCKET}.s3.${region}.amazonaws.com/${key}`;
 }
 
 async function getSignedUrl(key, expiresIn = 3600) {
-  return s3.getSignedUrlPromise('getObject', {
+  const command = new GetObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
-    Expires: expiresIn
   });
+  return presignerGetSignedUrl(s3, command, { expiresIn });
 }
 
 module.exports = { uploadFile, getSignedUrl };

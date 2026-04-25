@@ -17,9 +17,9 @@
     "dotenv": "^16.3.1",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "drizzle-orm": "^0.36.4",
-    "@neondatabase/serverless": "^0.10.4",
-    "drizzle-kit": "^0.30.6",
+    "drizzle-orm": "^0.45.2",
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-kit": "^0.31.10",
     "socket.io": "^4.6.1",
     "ioredis": "^5.3.2",
     "bull": "^4.12.2",
@@ -27,23 +27,25 @@
     "twilio": "^4.21.0",
     "@sendgrid/mail": "^8.1.1",
     "multer": "^2.0.2",
-    "aws-sdk": "^2.1692.0",
+    "@aws-sdk/client-s3": "^3.665.0",
+    "@aws-sdk/s3-request-presigner": "^3.665.0",
     "axios": "^1.14.0",
-    "uuid": "^11.0.5",
+    "uuid": "^14.0.0",
     "morgan": "^1.10.0",
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
     "compression": "^1.7.4",
     "node-cron": "^3.0.3",
     "pg": "^8.11.3",
-    "qrcode": "^1.5.3",
-    "africastalking": "^0.7.0"
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
   "overrides": {
-    "lodash": "^4.17.21",
-    "uuid": "^11.0.5"
+    "lodash": "4.17.21",
+    "uuid": "^14.0.0",
+    "esbuild": "^0.25.0",
+    "axios": "^1.14.0"
   }
 }

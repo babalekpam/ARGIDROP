@@ -22,12 +22,27 @@ async function sendSMS(phone, message) {
     await twilio.messages.create({ body: message, from: process.env.TWILIO_PHONE_NUMBER, to: phone });
   } catch (err) {
     console.error('SMS error:', err.message);
-    // Fallback to Africa's Talking
+    // Fallback to Africa's Talking via direct REST call (no SDK to avoid
+    // pulling vulnerable transitive deps).
     if (process.env.AT_API_KEY) {
       try {
-        const AfricasTalking = require('africastalking');
-        const at = AfricasTalking({ apiKey: process.env.AT_API_KEY, username: process.env.AT_USERNAME });
-        await at.SMS.send({ to: [phone], message, from: process.env.AT_SENDER_ID });
+        const params = new URLSearchParams({
+          username: process.env.AT_USERNAME || 'sandbox',
+          to: phone,
+          message,
+        });
+        if (process.env.AT_SENDER_ID) params.set('from', process.env.AT_SENDER_ID);
+        const isSandbox = (process.env.AT_USERNAME || 'sandbox') === 'sandbox';
+        const url = isSandbox
+          ? 'https://api.sandbox.africastalking.com/version1/messaging'
+          : 'https://api.africastalking.com/version1/messaging';
+        await axios.post(url, params.toString(), {
+          headers: {
+            apiKey: process.env.AT_API_KEY,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+        });
       } catch (atErr) {
         console.error('AT SMS error:', atErr.message);
       }
