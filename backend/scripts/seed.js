@@ -12,11 +12,11 @@ async function seed() {
   console.log('🌱 Seeding ArgiDrop database…\n');
 
   // ─── ADMIN USER ───
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ArgiDropAdmin2026!';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ArgiDropAdmin2026!!';
   const adminHash = await bcrypt.hash(adminPassword, 10);
   try {
     const [admin] = await db.insert(users).values({
-      email: 'admin@argidrop.africa',
+      email: 'admin@argidrop.com',
       phone: '+22890000001',
       passwordHash: adminHash,
       role: 'ADMIN',
@@ -28,7 +28,7 @@ async function seed() {
       country: 'TG',
       language: 'fr',
     }).onConflictDoNothing().returning();
-    if (admin) console.log(`✓ Admin user created: admin@argidrop.africa / ${adminPassword}`);
+    if (admin) console.log(`✓ Admin user created: admin@argidrop.com / ${adminPassword}`);
     else console.log('• Admin user already exists');
   } catch (e) { console.log('• Admin:', e.message); }
 
