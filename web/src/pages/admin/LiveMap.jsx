@@ -1,6 +1,7 @@
 // Admin Live Operations Map — real-time drivers + active jobs
 import React, { useEffect, useRef, useState } from 'react';
 import api from '../../utils/api';
+import MapView from '../../components/MapView';
 
 const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', forestSoft: '#2D5E3E', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', success: '#2D5E3E', warn: '#B87333', alert: '#9B2C2C' };
 
@@ -25,28 +26,40 @@ export default function LiveMap() {
   const drivers = data.drivers || [];
   const activeJobs = data.activeJobs || [];
   const postedJobs = data.postedJobs || [];
+  const HEIGHT = 640;
 
-  const allPoints = [
-    ...drivers.filter(d => d.lat && d.lng).map(d => ({ lat: parseFloat(d.lat), lng: parseFloat(d.lng) })),
-    ...activeJobs.flatMap(j => [{ lat: parseFloat(j.pickupLat), lng: parseFloat(j.pickupLng) }, { lat: parseFloat(j.dropoffLat), lng: parseFloat(j.dropoffLng) }].filter(p => p.lat && p.lng))
-  ];
+  const markers = [];
+  const routes = [];
 
-  const defaultCenter = { lat: 6.1319, lng: 1.2228 };
-  const center = allPoints.length > 0 ? {
-    lat: allPoints.reduce((s, p) => s + p.lat, 0) / allPoints.length,
-    lng: allPoints.reduce((s, p) => s + p.lng, 0) / allPoints.length,
-  } : defaultCenter;
+  if (filter === 'ALL' || filter === 'ACTIVE') {
+    activeJobs.forEach(j => {
+      const a = { lng: parseFloat(j.pickupLng), lat: parseFloat(j.pickupLat) };
+      const b = { lng: parseFloat(j.dropoffLng), lat: parseFloat(j.dropoffLat) };
+      if (Number.isFinite(a.lng) && Number.isFinite(a.lat) && Number.isFinite(b.lng) && Number.isFinite(b.lat)) {
+        routes.push({ coords: [[a.lng, a.lat], [b.lng, b.lat]], color: C.forest, width: j.status === 'IN_TRANSIT' ? 3 : 2, opacity: 0.6, dashed: j.status !== 'IN_TRANSIT' });
+        markers.push({ lng: a.lng, lat: a.lat, color: C.bronze, size: 12, onClick: () => setSelected({ type: 'job', data: j }) });
+        markers.push({ lng: b.lng, lat: b.lat, color: C.forest, size: 12, onClick: () => setSelected({ type: 'job', data: j }) });
+      }
+    });
+  }
 
-  const SIZE = 900, HEIGHT = 640;
-  const spread = allPoints.length > 1 ? Math.max(
-    Math.max(...allPoints.map(p => Math.abs(p.lat - center.lat))),
-    Math.max(...allPoints.map(p => Math.abs(p.lng - center.lng)))
-  ) * 1.3 : 0.05;
+  if (filter === 'ALL' || filter === 'POSTED') {
+    postedJobs.forEach(j => {
+      const lng = parseFloat(j.pickupLng), lat = parseFloat(j.pickupLat);
+      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+        markers.push({ lng, lat, color: C.bronze, size: 14, onClick: () => setSelected({ type: 'posted', data: j }) });
+      }
+    });
+  }
 
-  const project = (lat, lng) => ({
-    x: SIZE / 2 + ((lng - center.lng) / spread) * (SIZE / 2 - 40),
-    y: HEIGHT / 2 - ((lat - center.lat) / spread) * (HEIGHT / 2 - 40),
-  });
+  if (filter === 'ALL' || filter === 'DRIVERS') {
+    drivers.forEach(d => {
+      const lng = parseFloat(d.lng), lat = parseFloat(d.lat);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+      const onActive = activeJobs.some(j => j.driverId === d.id);
+      markers.push({ lng, lat, color: onActive ? C.forest : C.forestSoft, size: onActive ? 16 : 12, pulse: onActive, onClick: () => setSelected({ type: 'driver', data: d }) });
+    });
+  }
 
   return (
     <div style={{ padding: '24px 32px', fontFamily: 'Inter, sans-serif' }}>
@@ -74,63 +87,15 @@ export default function LiveMap() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
         <div style={{ background: C.paper, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', position: 'relative', minHeight: HEIGHT }}>
-          <svg viewBox={`0 0 ${SIZE} ${HEIGHT}`} style={{ width: '100%', height: HEIGHT, display: 'block' }}>
-            <defs>
-              <pattern id="liveGrid" width="48" height="48" patternUnits="userSpaceOnUse">
-                <path d="M 48 0 L 0 0 0 48" fill="none" stroke={C.border} strokeWidth="0.6" />
-              </pattern>
-            </defs>
-            <rect width={SIZE} height={HEIGHT} fill="#FBF7EE" />
-            <rect width={SIZE} height={HEIGHT} fill="url(#liveGrid)" />
+          <MapView markers={markers} routes={routes} fitToMarkers height={HEIGHT} />
 
-            {(filter === 'ALL' || filter === 'ACTIVE') && activeJobs.map(j => {
-              if (!j.pickupLat || !j.dropoffLat) return null;
-              const a = project(parseFloat(j.pickupLat), parseFloat(j.pickupLng));
-              const b = project(parseFloat(j.dropoffLat), parseFloat(j.dropoffLng));
-              return (
-                <g key={`route-${j.id}`} onClick={() => setSelected({ type: 'job', data: j })} style={{ cursor: 'pointer' }}>
-                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={C.forest} strokeWidth={j.status === 'IN_TRANSIT' ? 2.5 : 1.5} strokeDasharray={j.status === 'MATCHED' ? '5 4' : '0'} opacity="0.7" />
-                  <circle cx={a.x} cy={a.y} r={6} fill={C.bronze} />
-                  <circle cx={b.x} cy={b.y} r={6} fill={C.forest} />
-                </g>
-              );
-            })}
-
-            {(filter === 'ALL' || filter === 'POSTED') && postedJobs.map(j => {
-              if (!j.pickupLat) return null;
-              const p = project(parseFloat(j.pickupLat), parseFloat(j.pickupLng));
-              return (
-                <g key={`posted-${j.id}`} onClick={() => setSelected({ type: 'posted', data: j })} style={{ cursor: 'pointer' }}>
-                  <circle cx={p.x} cy={p.y} r={12} fill={C.bronze} opacity="0.2" />
-                  <circle cx={p.x} cy={p.y} r={7} fill={C.bronze} stroke={C.paper} strokeWidth="1.5" />
-                </g>
-              );
-            })}
-
-            {(filter === 'ALL' || filter === 'DRIVERS') && drivers.map(d => {
-              if (!d.lat || !d.lng) return null;
-              const p = project(parseFloat(d.lat), parseFloat(d.lng));
-              const onActive = activeJobs.some(j => j.driverId === d.id);
-              return (
-                <g key={`driver-${d.id}`} onClick={() => setSelected({ type: 'driver', data: d })} style={{ cursor: 'pointer' }}>
-                  <circle cx={p.x} cy={p.y} r={onActive ? 11 : 9} fill={onActive ? C.forest : C.forestSoft} opacity="0.2" />
-                  <circle cx={p.x} cy={p.y} r={onActive ? 7 : 5} fill={onActive ? C.forest : C.forestSoft} stroke={C.paper} strokeWidth="1.5" />
-                  {onActive && <circle cx={p.x} cy={p.y} r={14} fill="none" stroke={C.forest} strokeWidth="1" opacity="0.3">
-                    <animate attributeName="r" values="10;18;10" dur="2s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
-                  </circle>}
-                </g>
-              );
-            })}
-          </svg>
-
-          <div style={{ position: 'absolute', bottom: 16, left: 16, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12, fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ position: 'absolute', bottom: 30, left: 16, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12, fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 5 }}>
             <LegendDot color={C.forest} pulse label={`On delivery (${activeJobs.length})`} />
             <LegendDot color={C.forestSoft} label={`Online, idle (${drivers.filter(d => !activeJobs.some(j => j.driverId === d.id)).length})`} />
             <LegendDot color={C.bronze} label={`Awaiting driver (${postedJobs.length})`} />
           </div>
 
-          <div style={{ position: 'absolute', top: 16, right: 16, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 4, padding: '6px 12px', fontSize: 11, color: C.muted }}>
+          <div style={{ position: 'absolute', top: 16, left: 16, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 4, padding: '6px 12px', fontSize: 11, color: C.muted, zIndex: 5 }}>
             Updated {new Date(data.snapshotAt).toLocaleTimeString()}
           </div>
         </div>

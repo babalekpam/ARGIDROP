@@ -71,3 +71,13 @@ argidrop/
 - Flutterwave (primary, francophone Africa)
 - Paystack (Nigeria)
 - Stripe (international/enterprise)
+
+## Maps (MapTiler)
+
+- Library: `maplibre-gl@^4.7.0` (web)
+- Provider: MapTiler — style `streets-v2`, key from `VITE_MAPTILER_KEY` (Replit secret)
+- Reusable components:
+  - `web/src/components/MapView.jsx` — wraps maplibre-gl: markers, route polylines, click handler, `fitToMarkers`. Reacts to `center`/`zoom` prop changes via `easeTo`. Renders a graceful fallback message when WebGL is unavailable.
+  - `web/src/components/AddressPicker.jsx` — MapTiler geocoding (country=tg, proximity=Lomé) with debounced search, AbortController-based request sequencing, click-to-place pin via reverse geocoding.
+- Call sites: `pages/business/PostJob.jsx` (pickup + dropoff steps), `pages/business/DeliveryTracking.jsx` (live driver via socket `driver:location_update`), `pages/admin/LiveMap.jsx` (active drivers + active jobs).
+- Note: the Replit preview/test browser has no WebGL; maps render the WebGL fallback there but work in real user browsers.

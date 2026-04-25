@@ -8,23 +8,24 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@googlemaps/react-wrapper": "^1.1.35",
+    "axios": "^1.6.5",
+    "date-fns": "^3.3.1",
+    "lucide-react": "^0.344.0",
+    "maplibre-gl": "^4.7.1",
+    "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0",
-    "axios": "^1.6.5",
-    "socket.io-client": "^4.6.1",
-    "@googlemaps/react-wrapper": "^1.1.35",
-    "recharts": "^2.12.0",
-    "date-fns": "^3.3.1",
     "react-hot-toast": "^2.4.1",
-    "lucide-react": "^0.344.0",
-    "qrcode.react": "^3.1.0"
+    "react-router-dom": "^6.22.0",
+    "recharts": "^2.12.0",
+    "socket.io-client": "^4.6.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.1.4",
-    "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.17",
-    "postcss": "^8.4.35"
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.4"
   }
 }

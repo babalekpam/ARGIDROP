@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../../utils/api';
+import MapView from '../../components/MapView';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', borderSoft:'#EFE8D7' };
 
@@ -23,7 +24,12 @@ export default function DeliveryTracking() {
     const socket = io(import.meta.env.VITE_API_URL?.replace('/api/v1','') || 'http://localhost:5000', { auth:{ token } });
     socketRef.current = socket;
     socket.emit('join:job', id);
-    socket.on('driver:location', pos => setDriverPos(pos));
+    const handleLoc = pos => {
+      const lat = parseFloat(pos?.lat); const lng = parseFloat(pos?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) setDriverPos({ lat, lng });
+    };
+    socket.on('driver:location_update', handleLoc);
+    socket.on('driver:location', handleLoc);
     socket.on('job:status_change', ({ status }) => setJob(j => j ? { ...j, status } : j));
     return () => socket.disconnect();
   }, [id]);
@@ -83,34 +89,21 @@ export default function DeliveryTracking() {
           ))}
         </div>
 
-        {/* SVG Map */}
+        {/* Real map */}
         <div style={{ background:C.paper, border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden', position:'relative', minHeight:520 }}>
-          <svg width="100%" height="100%" viewBox="0 0 800 520" style={{ position:'absolute', inset:0 }}>
-            <defs><pattern id="dtGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E4DCC9" strokeWidth="0.6" /></pattern></defs>
-            <rect width="800" height="520" fill="#FBF7EE" />
-            <rect width="800" height="520" fill="url(#dtGrid)" />
-            <path d="M 0 280 Q 150 260 300 290 T 600 270 T 800 260" stroke="#D6C9A8" strokeWidth="16" fill="none" />
-            <path d="M 380 0 Q 360 180 400 350 T 380 520" stroke="#D6C9A8" strokeWidth="14" fill="none" />
-            <path d="M 160 420 Q 280 350 400 290 T 640 160" stroke={C.forest} strokeWidth="2.5" fill="none" strokeDasharray="5 4" opacity="0.7" />
-            <circle cx="160" cy="420" r="10" fill={C.bronze} />
-            <circle cx="160" cy="420" r="4" fill={C.paper} />
-            <circle cx="640" cy="160" r="10" fill={C.forest} />
-            <circle cx="640" cy="160" r="4" fill={C.paper} />
-            {driverPos ? (
-              <g>
-                <circle cx={driverPos.x || 380} cy={driverPos.y || 300} r="16" fill={C.forest} opacity="0.15" />
-                <circle cx={driverPos.x || 380} cy={driverPos.y || 300} r="10" fill={C.forest} />
-                <circle cx={driverPos.x || 380} cy={driverPos.y || 300} r="4" fill={C.paper} />
-              </g>
-            ) : job.status === 'IN_TRANSIT' && (
-              <g>
-                <circle cx="380" cy="300" r="16" fill={C.forest} opacity="0.15" />
-                <circle cx="380" cy="300" r="10" fill={C.forest} />
-                <circle cx="380" cy="300" r="4" fill={C.paper} />
-              </g>
-            )}
-          </svg>
-          <div style={{ position:'absolute', top:16, left:16, background:C.paper, border:`1px solid ${C.border}`, borderRadius:4, padding:'6px 12px', fontSize:12, display:'flex', alignItems:'center', gap:8 }}>
+          {(() => {
+            const pLat = parseFloat(job.pickupLat), pLng = parseFloat(job.pickupLng);
+            const dLat = parseFloat(job.dropoffLat), dLng = parseFloat(job.dropoffLng);
+            const dr = driverPos && Number.isFinite(driverPos.lat) && Number.isFinite(driverPos.lng) ? driverPos : null;
+            const markers = [];
+            if (Number.isFinite(pLat) && Number.isFinite(pLng)) markers.push({ lng: pLng, lat: pLat, color: C.bronze, size: 18, label: 'Pickup' });
+            if (Number.isFinite(dLat) && Number.isFinite(dLng)) markers.push({ lng: dLng, lat: dLat, color: C.forest, size: 18, label: 'Dropoff' });
+            if (dr) markers.push({ lng: dr.lng, lat: dr.lat, color: '#2563EB', size: 16, pulse: true, label: 'Driver' });
+            const routes = [];
+            if (markers.length >= 2) routes.push({ coords: markers.map(m => [m.lng, m.lat]), color: C.forest, width: 3, opacity: 0.6, dashed: true });
+            return <MapView markers={markers} routes={routes} fitToMarkers height={520} />;
+          })()}
+          <div style={{ position:'absolute', top:16, left:16, background:C.paper, border:`1px solid ${C.border}`, borderRadius:4, padding:'6px 12px', fontSize:12, display:'flex', alignItems:'center', gap:8, zIndex:5 }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.forest, display:'inline-block' }} />
             <span style={{ color:C.ink, fontWeight:500 }}>{statusLabel}</span>
           </div>

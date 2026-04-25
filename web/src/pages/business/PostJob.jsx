@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import AddressPicker from '../../components/AddressPicker';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', borderSoft:'#EFE8D7' };
 const STEPS = ['Pickup', 'Dropoff', 'Package', 'Review & Pay'];
@@ -111,12 +112,12 @@ export default function PostJob() {
         {/* STEP 0 — Pickup */}
         {step === 0 && <>
           <h3 style={{ fontFamily:'Fraunces, serif', fontSize:16, fontWeight:500, margin:'0 0 18px' }}>Pickup location</h3>
-          <Field label="Street address *" value={form.pickupAddress} onChange={set('pickupAddress')} placeholder="Avenue de la Libération, Lomé" />
-          <Row>
-            <Field label="City" value={form.pickupCity} onChange={set('pickupCity')} placeholder="Lomé" />
-            <Field label="GPS Latitude" value={form.pickupLat} onChange={set('pickupLat')} placeholder="6.1319" type="number" />
-            <Field label="GPS Longitude" value={form.pickupLng} onChange={set('pickupLng')} placeholder="1.2228" type="number" />
-          </Row>
+          <AddressPicker
+            label="Pickup address *"
+            color={C.bronze}
+            value={{ address: form.pickupAddress, city: form.pickupCity, lat: form.pickupLat, lng: form.pickupLng }}
+            onChange={loc => setForm(p => ({ ...p, pickupAddress: loc.address, pickupCity: loc.city || p.pickupCity, pickupLat: loc.lat, pickupLng: loc.lng }))}
+          />
           <Row>
             <Field label="Contact name" value={form.pickupContactName} onChange={set('pickupContactName')} placeholder="Your name or staff" />
             <Field label="Contact phone *" value={form.pickupContactPhone} onChange={set('pickupContactPhone')} placeholder="+228 90 00 00 00" />
@@ -127,12 +128,12 @@ export default function PostJob() {
         {/* STEP 1 — Dropoff */}
         {step === 1 && <>
           <h3 style={{ fontFamily:'Fraunces, serif', fontSize:16, fontWeight:500, margin:'0 0 18px' }}>Dropoff location</h3>
-          <Field label="Recipient address *" value={form.dropoffAddress} onChange={set('dropoffAddress')} placeholder="Recipient street address" />
-          <Row>
-            <Field label="City" value={form.dropoffCity} onChange={set('dropoffCity')} placeholder="Lomé" />
-            <Field label="GPS Latitude" value={form.dropoffLat} onChange={set('dropoffLat')} placeholder="6.1651" type="number" />
-            <Field label="GPS Longitude" value={form.dropoffLng} onChange={set('dropoffLng')} placeholder="1.2546" type="number" />
-          </Row>
+          <AddressPicker
+            label="Dropoff address *"
+            color={C.forest}
+            value={{ address: form.dropoffAddress, city: form.dropoffCity, lat: form.dropoffLat, lng: form.dropoffLng }}
+            onChange={loc => setForm(p => ({ ...p, dropoffAddress: loc.address, dropoffCity: loc.city || p.dropoffCity, dropoffLat: loc.lat, dropoffLng: loc.lng }))}
+          />
           <Row>
             <Field label="Recipient name *" value={form.dropoffContactName} onChange={set('dropoffContactName')} placeholder="Ama Kofi" />
             <Field label="Recipient phone *" value={form.dropoffContactPhone} onChange={set('dropoffContactPhone')} placeholder="+228 91 00 00 00" />
