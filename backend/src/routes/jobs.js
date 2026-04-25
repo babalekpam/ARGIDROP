@@ -1,6 +1,7 @@
 // Jobs Route — Option A flow: pay first, then broadcast
 const express = require('express');
-const { eq, and, desc, or, sql } = require('drizzle-orm');
+const multer = require('multer');
+const { eq, and, desc, or, sql, inArray } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
@@ -11,9 +12,11 @@ const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = req
 const { hasAvailableBalance, holdFunds, returnHold } = require('../services/wallet');
 const { generatePickupCode } = require('../services/qr');
 const { sendPushNotification, sendSMS } = require('../services/notification');
+const { uploadFile } = require('../services/storage');
 const { getIO } = require('../socket');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 /**
  * POST /jobs
@@ -167,6 +170,30 @@ router.get('/', authenticate, async (req, res, next) => {
   try {
     const db = getDB();
     const { status, limit = 20, offset = 0 } = req.query;
+
+    // Build all WHERE conditions up front, then AND them in a single .where()
+    // (chained .where() calls in Drizzle replace, not merge — combine with and()).
+    const conditions = [];
+
+    if (req.user.role === 'BUSINESS') {
+      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      if (!business) return res.json({ success: true, jobs: [], total: 0 });
+      conditions.push(eq(jobs.businessId, business.id));
+    } else if (req.user.role === 'DRIVER') {
+      const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+      if (!driver) return res.json({ success: true, jobs: [], total: 0 });
+      conditions.push(eq(jobs.driverId, driver.id));
+    }
+
+    if (status) {
+      // 'ACTIVE' is a UI shorthand for any in-progress delivery
+      if (status === 'ACTIVE') {
+        conditions.push(inArray(jobs.status, ['MATCHED', 'IN_TRANSIT']));
+      } else {
+        conditions.push(eq(jobs.status, status));
+      }
+    }
+
     let query = db.select({
       job: jobs,
       business: { companyName: businesses.companyName, rating: businesses.rating },
@@ -176,16 +203,10 @@ router.get('/', authenticate, async (req, res, next) => {
       .leftJoin(businesses, eq(jobs.businessId, businesses.id))
       .leftJoin(drivers, eq(jobs.driverId, drivers.id));
 
-    if (req.user.role === 'BUSINESS') {
-      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
-      query = query.where(eq(jobs.businessId, business.id));
-    } else if (req.user.role === 'DRIVER') {
-      const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
-      query = query.where(eq(jobs.driverId, driver.id));
-    }
-    if (status) query = query.where(eq(jobs.status, status));
+    if (conditions.length) query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
+
     const result = await query.orderBy(desc(jobs.createdAt)).limit(parseInt(limit)).offset(parseInt(offset));
-    res.json({ success: true, jobs: result });
+    res.json({ success: true, jobs: result, total: result.length });
   } catch (err) { next(err); }
 });
 
@@ -306,6 +327,41 @@ router.post('/:id/cancel', authenticate, async (req, res, next) => {
     }
 
     res.json({ success: true, message: 'Job cancelled, funds returned' });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /jobs/:id/proof
+ * Driver uploads proof-of-delivery photo. Stored alongside the job.
+ * Optional step — most deliveries are confirmed via QR scan, but this lets
+ * drivers attach a doorstep photo when the recipient asks for it.
+ */
+router.post('/:id/proof', authenticate, requireRole('DRIVER'), upload.single('photo'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // Make sure the requesting driver actually owns this job
+    const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!driver || job.driverId !== driver.id) {
+      return res.status(403).json({ success: false, message: 'Not your delivery' });
+    }
+    if (!req.file) return res.status(400).json({ success: false, message: 'Photo file is required' });
+
+    // Only allow proof upload after delivery scan / completion to avoid
+    // attaching a photo to an in-transit or never-delivered job.
+    if (!['DELIVERED', 'COMPLETED'].includes(job.status)) {
+      return res.status(400).json({ success: false, message: 'Job must be delivered before uploading proof' });
+    }
+    if (job.deliveryProofUrl) {
+      return res.status(409).json({ success: false, message: 'Proof already uploaded for this delivery' });
+    }
+
+    const photoUrl = await uploadFile(req.file, `jobs/${job.id}/proof`);
+    await db.update(jobs).set({ deliveryProofUrl: photoUrl, updatedAt: new Date() }).where(eq(jobs.id, job.id));
+
+    res.json({ success: true, deliveryProofUrl: photoUrl });
   } catch (err) { next(err); }
 });
 

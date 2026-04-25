@@ -14,7 +14,12 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.argilette.argidrop.driver"
+      "bundleIdentifier": "com.argilette.argidrop.driver",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs.",
+        "NSCameraUsageDescription": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,6 +37,9 @@
         "VIBRATE"
       ]
     },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       ["expo-location", { "locationAlwaysAndWhenInUsePermission": "ArgiDrop needs your location to match you with nearby delivery jobs." }],
       ["expo-camera", { "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery." }],
@@ -39,7 +47,7 @@
       ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#1B4332" }]
     ],
     "extra": {
-      "eas": { "projectId": "YOUR_EAS_PROJECT_ID" }
+      "maptilerKey": "set EXPO_PUBLIC_MAPTILER_KEY in env or fill here for production builds"
     }
   }
 }

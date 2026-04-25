@@ -81,3 +81,20 @@ argidrop/
   - `web/src/components/AddressPicker.jsx` — MapTiler geocoding (country=tg, proximity=Lomé) with debounced search, AbortController-based request sequencing, click-to-place pin via reverse geocoding.
 - Call sites: `pages/business/PostJob.jsx` (pickup + dropoff steps), `pages/business/DeliveryTracking.jsx` (live driver via socket `driver:location_update`), `pages/admin/LiveMap.jsx` (active drivers + active jobs).
 - Note: the Replit preview/test browser has no WebGL; maps render the WebGL fallback there but work in real user browsers.
+
+## Mobile Driver App (Expo)
+
+- 17 screens covering auth, KYC, driver dashboard, jobs (browse → bid → accept → pickup → delivery → proof → rating), wallet, support.
+- Maps: `mobile/src/components/MapView.js` — WebView wrapping maplibre-gl JS + MapTiler tiles. No native map module / Google key required (works in Expo Go). Reads key from `EXPO_PUBLIC_MAPTILER_KEY` env or `app.json` extra. Uses a postMessage bridge with a `ready` handshake; pending state is queued and flushed on map load. Updates markers, center, zoom, and the user-location dot dynamically without rebuilding HTML.
+- Assets: placeholder PNGs in `mobile/assets/` (icon, adaptive-icon, splash, notification-icon, favicon) so Expo can boot without missing-file crashes.
+- `mobile/app.json`: removed broken EAS placeholder, added iOS Info.plist permissions for camera/location, exposes `extra.maptilerKey`.
+- Post-delivery flow: ScanQRScreen → ProofOfDelivery → RateDelivery (skips ProofOfDelivery if business doesn't require photo).
+
+## Proof of Delivery
+
+- Schema: `jobs.deliveryProofUrl` (text, nullable).
+- Endpoint: `POST /api/v1/jobs/:id/proof` (driver-only, multer single `photo` field). Validates: job exists, requesting driver owns the job, job is `DELIVERED`/`COMPLETED`, no proof already on file. Stores via `uploadFile()` (returns placeholder URL when `AWS_S3_BUCKET` unset).
+
+## Backend Query Filters
+
+- `GET /api/v1/jobs` accepts `status=ACTIVE` as a UI shorthand → expands to `IN (MATCHED, IN_TRANSIT)` (the only enum-valid in-progress states). Role + status conditions are combined with `and(...)` in a single `.where()` so role scoping isn't dropped.

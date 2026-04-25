@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView from '../../components/MapView';
 import * as Location from 'expo-location';
 import { useSocket } from '../../context/SocketContext';
 import api from '../../utils/api';
@@ -35,14 +35,18 @@ export default function ActiveDeliveryScreen({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cream }}>
-      <MapView
-        style={{ flex: 1 }}
-        provider={PROVIDER_GOOGLE}
-        showsUserLocation
-        initialRegion={location ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 } : { latitude: 6.13, longitude: 1.21, latitudeDelta: 0.08, longitudeDelta: 0.08 }}>
-        {job?.pickupLat && <Marker coordinate={{ latitude: parseFloat(job.pickupLat), longitude: parseFloat(job.pickupLng) }} title="Pickup" pinColor={C.bronze} />}
-        {job?.dropoffLat && <Marker coordinate={{ latitude: parseFloat(job.dropoffLat), longitude: parseFloat(job.dropoffLng) }} title="Dropoff" pinColor={C.forest} />}
-      </MapView>
+      <View style={{ flex: 1 }}>
+        <MapView
+          center={location || (job?.pickupLat ? { latitude: parseFloat(job.pickupLat), longitude: parseFloat(job.pickupLng) } : { latitude: 6.13, longitude: 1.21 })}
+          zoom={13}
+          showUserLocation
+          userLocation={location}
+          markers={[
+            ...(job?.pickupLat ? [{ lat: parseFloat(job.pickupLat), lng: parseFloat(job.pickupLng), type: 'pickup' }] : []),
+            ...(job?.dropoffLat ? [{ lat: parseFloat(job.dropoffLat), lng: parseFloat(job.dropoffLng), type: 'dropoff' }] : []),
+          ]}
+        />
+      </View>
 
       <View style={s.panel}>
         <Text style={s.label}>ACTIVE DELIVERY · {status === 'MATCHED' ? 'Head to pickup' : 'Head to dropoff'}</Text>

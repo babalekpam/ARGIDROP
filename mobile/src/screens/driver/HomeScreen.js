@@ -1,7 +1,7 @@
 // Driver Home — map with nearby jobs, online/offline toggle, current active delivery
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch, FlatList, RefreshControl } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView from '../../components/MapView';
 import * as Location from 'expo-location';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -145,18 +145,22 @@ export default function HomeScreen({ navigation }) {
       {/* Map */}
       {location && (
         <View style={s.mapWrap}>
-          <MapView
-            ref={mapRef}
-            style={{ height: 240 }}
-            provider={PROVIDER_GOOGLE}
-            showsUserLocation
-            initialRegion={{ latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }}>
-            {availableJobs.map(({ job }) => job.pickupLat && (
-              <Marker key={job.id} coordinate={{ latitude: parseFloat(job.pickupLat), longitude: parseFloat(job.pickupLng) }}
-                title={`${job.priceOffered} ${job.currency}`} description={job.packageType}
-                pinColor={C.forest} />
-            ))}
-          </MapView>
+          <View style={{ height: 240 }}>
+            <MapView
+              center={{ latitude: location.latitude, longitude: location.longitude }}
+              zoom={12}
+              showUserLocation
+              userLocation={{ latitude: location.latitude, longitude: location.longitude }}
+              markers={availableJobs
+                .filter(({ job }) => job.pickupLat && job.pickupLng)
+                .map(({ job }) => ({
+                  lat: parseFloat(job.pickupLat),
+                  lng: parseFloat(job.pickupLng),
+                  type: 'job',
+                  label: `${Math.round(parseFloat(job.priceOffered) / 1000)}k`,
+                }))}
+            />
+          </View>
         </View>
       )}
 

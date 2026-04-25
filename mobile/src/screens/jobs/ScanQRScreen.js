@@ -47,8 +47,10 @@ export default function ScanQRScreen({ route, navigation }) {
           { text: 'Continue', onPress: () => navigation.replace('ActiveDelivery', { jobId }) }
         ]);
       } else {
-        Alert.alert('✓ Delivery confirmed', 'Payment released to your account!', [
-          { text: 'OK', onPress: () => navigation.navigate('DriverTabs') }
+        // Delivery confirmed → ask for proof photo (optional but encouraged), then rate
+        Alert.alert('✓ Delivery confirmed', 'Payment released. Add a proof photo so the customer has a record.', [
+          { text: 'Skip', style: 'cancel', onPress: () => navigation.replace('RateDelivery', { jobId }) },
+          { text: 'Add photo', onPress: () => navigation.replace('ProofOfDelivery', { jobId }) }
         ]);
       }
     } catch (err) {

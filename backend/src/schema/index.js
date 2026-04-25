@@ -269,6 +269,7 @@ const jobs = pgTable('jobs', {
   deliveryScannedAt: timestamp('delivery_scanned_at'),
   deliveryScanLat: decimal('delivery_scan_lat', { precision: 10, scale: 7 }),
   deliveryScanLng: decimal('delivery_scan_lng', { precision: 10, scale: 7 }),
+  deliveryProofUrl: text('delivery_proof_url'),
 
   // Status
   status: jobStatusEnum('status').default('DRAFT'),
