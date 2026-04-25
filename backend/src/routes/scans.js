@@ -96,7 +96,17 @@ router.post('/pickup', authenticate, requireRole('DRIVER'), async (req, res, nex
 
 /**
  * GET /scans/r/:deliveryCode
- * Public recipient-facing endpoint — returns tracking info + QR for recipient to display
+ * Public recipient-facing endpoint — returns tracking info + QR for recipient to display.
+ *
+ * Security:
+ *  - Driver real-time GPS is exposed only while job is IN_TRANSIT (the only
+ *    state in which the driver is actually heading to the recipient). Once
+ *    delivered/cancelled/disputed, lat/lng are omitted so a stale link
+ *    cannot be used to track the driver.
+ *  - Vehicle plate is redacted (PII).
+ *  - The recipient QR is only generated while the code is actually scannable
+ *    (status IN_TRANSIT). Otherwise we return qrActive:false.
+ *  - Rate-limited at the server level (see server.js).
  */
 router.get('/r/:deliveryCode', async (req, res, next) => {
   try {
@@ -115,9 +125,13 @@ router.get('/r/:deliveryCode', async (req, res, next) => {
     if (!result) return res.status(404).json({ success: false, message: 'Tracking info not found' });
     const { job, driver, driverUser } = result;
 
-    // Generate QR for recipient to show driver
-    const qrPayload = JSON.stringify({ type: 'DELIVERY', jobId: job.id, code: job.deliveryCode, v: 1 });
-    const qrImage = await QRCode.toDataURL(qrPayload, { width: 400, margin: 2, color: { dark: '#1B4332', light: '#FDFBF6' } });
+    const qrActive = job.status === 'IN_TRANSIT';
+    let qrPayload = null;
+    let qrImage = null;
+    if (qrActive) {
+      qrPayload = JSON.stringify({ type: 'DELIVERY', jobId: job.id, code: job.deliveryCode, v: 1 });
+      qrImage = await QRCode.toDataURL(qrPayload, { width: 400, margin: 2, color: { dark: '#1B4332', light: '#FDFBF6' } });
+    }
 
     res.json({
       success: true,
@@ -128,18 +142,21 @@ router.get('/r/:deliveryCode', async (req, res, next) => {
         dropoffAddress: job.dropoffAddress,
         pickedUpAt: job.pickedUpAt,
         deliveredAt: job.deliveredAt,
+        qrActive,
         qrPayload,
         qrImage,
         driver: driver ? {
           firstName: driverUser?.firstName,
+          rating: driver.rating,
           vehicleType: driver.vehicleType,
           vehicleMake: driver.vehicleMake,
           vehicleModel: driver.vehicleModel,
           vehicleColor: driver.vehicleColor,
-          vehiclePlate: driver.vehiclePlate,
-          rating: driver.rating,
-          currentLat: driver.currentLat,
-          currentLng: driver.currentLng,
+          // GPS only while delivery is active
+          ...(qrActive ? {
+            currentLat: driver.currentLat,
+            currentLng: driver.currentLng,
+          } : {}),
         } : null
       }
     });

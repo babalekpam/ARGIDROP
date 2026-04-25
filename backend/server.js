@@ -50,6 +50,19 @@ app.use(morgan('combined'));
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 app.use('/api', limiter);
 
+// Tighter rate limit for unauthenticated public lookup endpoints to slow down
+// trackingToken / deliveryCode enumeration. 60 requests per 5 minutes per IP
+// is plenty for a recipient/business polling progress every few seconds.
+const publicLookupLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many tracking requests. Please slow down.' },
+});
+app.use('/api/v1/track', publicLookupLimiter);
+app.use('/api/v1/scans/r', publicLookupLimiter);
+
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'ArgiDrop API', timestamp: new Date().toISOString() }));
 
 app.use('/api/v1/auth', authRoutes);
