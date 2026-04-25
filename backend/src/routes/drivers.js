@@ -50,10 +50,16 @@ router.patch('/location', authenticate, requireRole('DRIVER'), async (req, res, 
     // Log location history
     await db.insert(driverLocations).values({ driverId: driver.id, jobId: jobId || null, lat, lng, heading, speedKph });
 
-    // Broadcast to job room if active delivery
+    // Broadcast to job room only if this driver is assigned to that job
     if (jobId) {
-      const io = getIO();
-      io.to(`job:${jobId}`).emit('driver:location_update', { driverId: driver.id, lat, lng, heading, speedKph, timestamp: new Date() });
+      const [assignedJob] = await db.select().from(jobs).where(
+        and(eq(jobs.id, jobId), eq(jobs.driverId, driver.id))
+      ).limit(1);
+
+      if (assignedJob) {
+        const io = getIO();
+        io.to(`job:${jobId}`).emit('driver:location_update', { driverId: driver.id, lat, lng, heading, speedKph, timestamp: new Date() });
+      }
     }
 
     res.json({ success: true });

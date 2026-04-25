@@ -1,5 +1,5 @@
 const { getDB } = require('../config/database');
-const { drivers, businesses, jobs } = require('../schema');
+const { drivers, users, businesses, jobs } = require('../schema');
 const { eq } = require('drizzle-orm');
 const jwt = require('jsonwebtoken');
 
@@ -42,8 +42,16 @@ function initSocket(socketIO) {
       const token = socket.handshake.auth.token;
       if (!token) return next(new Error('No token'));
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.userId;
-      socket.role = decoded.role;
+
+      const db = getDB();
+      const [user] = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);
+
+      if (!user) return next(new Error('User not found'));
+      if (user.status === 'BANNED') return next(new Error('Account banned'));
+      if (user.status === 'SUSPENDED') return next(new Error('Account suspended'));
+
+      socket.userId = user.id;
+      socket.role = user.role;
       next();
     } catch (err) {
       next(new Error('Invalid token'));
