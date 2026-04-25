@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "db:push": "drizzle-kit push:pg",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed": "node scripts/seed.js"
   },
@@ -17,19 +17,19 @@
     "dotenv": "^16.3.1",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "drizzle-orm": "^0.29.3",
+    "drizzle-orm": "^0.36.4",
     "@neondatabase/serverless": "^0.7.2",
-    "drizzle-kit": "^0.20.12",
+    "drizzle-kit": "^0.30.6",
     "socket.io": "^4.6.1",
     "ioredis": "^5.3.2",
     "bull": "^4.12.2",
     "stripe": "^14.14.0",
     "twilio": "^4.21.0",
     "@sendgrid/mail": "^8.1.1",
-    "multer": "^1.4.5-lts.1",
-    "aws-sdk": "^2.1534.0",
-    "axios": "^1.6.5",
-    "uuid": "^9.0.0",
+    "multer": "^2.0.2",
+    "aws-sdk": "^2.1700.0",
+    "axios": "^1.14.0",
+    "uuid": "^11.0.5",
     "morgan": "^1.10.0",
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
@@ -41,5 +41,9 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "overrides": {
+    "lodash": "^4.17.21",
+    "uuid": "^11.0.5"
   }
 }
