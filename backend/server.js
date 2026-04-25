@@ -1,4 +1,6 @@
 require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -62,6 +64,16 @@ app.use('/api/v1/wallets', walletRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/listings', listingsRoutes);
 app.use('/api/v1/pricing', pricingRoutes);
+
+// Serve the built web app (production). When web/dist exists, all non-API
+// requests fall through to the SPA's index.html so client-side routing works.
+const webDist = path.resolve(__dirname, '../web/dist');
+if (fs.existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get(/^\/(?!api\/|health$|socket\.io\/).*/, (req, res) => {
+    res.sendFile(path.join(webDist, 'index.html'));
+  });
+}
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 app.use(errorHandler);
