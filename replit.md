@@ -98,3 +98,19 @@ argidrop/
 ## Backend Query Filters
 
 - `GET /api/v1/jobs` accepts `status=ACTIVE` as a UI shorthand → expands to `IN (MATCHED, IN_TRANSIT)` (the only enum-valid in-progress states). Role + status conditions are combined with `and(...)` in a single `.where()` so role scoping isn't dropped.
+
+## Security: Accepted Residual Risk
+
+After the dependency hardening pass, the backend retains 3 lodash advisories (1 high + 2 moderate, all flavors of GHSA-r5fr-rjxr-66jc / GHSA-f23m-r3pf-42rh / GHSA-xxjr-mmjv-4gpg). These are **formally accepted as residual risk** because:
+
+1. lodash 4.x has no patched version — the GitHub Security Advisories list these as unfixed for the entire 4.x line, and lodash 5 has never been released.
+2. lodash is a required transitive of `bull` (job queue) and `express-validator` (request validation), both already at their latest published versions.
+3. Eliminating it would require migrating the queue to BullMQ and replacing the validator — a multi-week refactor outside the scope of dependency hygiene.
+4. The vulnerable surfaces are `_.template` (we never call `_.template`) and `_.unset` / `_.omit` with attacker-controlled property paths (we never pass user input as a path argument anywhere). Exploitability in our codebase is effectively zero.
+
+If/when lodash gets a patch or we migrate to BullMQ + Zod/manual validation, this section can be removed.
+
+## Runtime Requirements (post-upgrade)
+
+- **Node.js >= 20.19** (required by Vite 7 in the web app build step).
+- npm overrides are used in all three workspaces to pin transitives — make sure to use npm 8.3+ (default with Node 18+).
