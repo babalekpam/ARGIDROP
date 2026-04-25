@@ -21,6 +21,9 @@ MERCHANT_MONTHLY_FEE = "10000"
 AT_USERNAME = "sandbox"
 AT_SENDER_ID = "ARGIDROP"
 
+[userenv.production]
+ALLOWED_ORIGINS = "https://www.argidrop.com,https://argidrop.com"
+
 [workflows]
 runButton = "Project"
 
