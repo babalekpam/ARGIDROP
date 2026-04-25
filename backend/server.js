@@ -27,6 +27,7 @@ const listingsRoutes = require('./src/routes/listings');
 const pricingRoutes = require('./src/routes/pricing');
 const webhookRoutes = require('./src/routes/webhooks');
 const notificationRoutes = require('./src/routes/notifications');
+const paymentRoutes = require('./src/routes/payments');
 
 const { errorHandler } = require('./src/middleware/error');
 
@@ -35,6 +36,14 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || '*', methods: ['GET', 'POST'] }
 });
+
+// Trust ONE proxy hop (Replit's HTTPS proxy / production load balancer).
+// Without this, express-rate-limit cannot key on real client IPs and lumps
+// every request into the proxy's loopback IP, breaking per-IP rate limiting
+// across the entire app. Setting `1` (vs `true`) prevents X-Forwarded-For
+// spoofing — clients can only inject one fake hop, which our trusted proxy
+// always overwrites.
+app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
@@ -74,6 +83,7 @@ app.use('/api/v1/track', trackRoutes);
 app.use('/api/v1/uploads', uploadRoutes);
 app.use('/api/v1/scans', scanRoutes);
 app.use('/api/v1/wallets', walletRoutes);
+app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/listings', listingsRoutes);
 app.use('/api/v1/pricing', pricingRoutes);

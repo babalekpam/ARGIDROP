@@ -23,6 +23,7 @@ router.get('/balance', authenticate, requireRole('BUSINESS'), async (req, res, n
         heldBalance: wallet.heldBalance,
         available: available.toFixed(2),
         currency: wallet.currency,
+        country: biz.country,
         autoTopupEnabled: wallet.autoTopupEnabled,
         lastDepositAt: wallet.lastDepositAt
       }

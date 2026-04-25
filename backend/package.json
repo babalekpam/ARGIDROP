@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "check:schema": "node scripts/check-schema-drift.js",
     "seed": "node scripts/seed.js"
   },
   "dependencies": {

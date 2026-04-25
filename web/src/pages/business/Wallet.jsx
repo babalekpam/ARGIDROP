@@ -1,19 +1,15 @@
 // Business Wallet — top up, view balance, transaction history
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import PaymentMethodPicker from '../../components/PaymentMethodPicker';
 
 const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', success: '#2D5E3E', warn: '#B87333', alert: '#9B2C2C' };
-
-const PROVIDERS = [
-  { id: 'FLUTTERWAVE', label: 'Flutterwave', note: 'MoMo, cards, bank' },
-  { id: 'PAYSTACK', label: 'Paystack', note: 'Nigeria only' },
-];
 
 export default function Wallet() {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [depositing, setDepositing] = useState(false);
-  const [depositForm, setDepositForm] = useState({ amount: '', provider: 'FLUTTERWAVE', phone: '' });
+  const [depositForm, setDepositForm] = useState({ amount: '', provider: '', phone: '' });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -38,11 +34,16 @@ export default function Wallet() {
         phone: depositForm.phone,
       });
       if (res.data.paymentUrl) {
-        window.open(res.data.paymentUrl, '_blank');
-        alert('Complete the payment in the new window. This wallet will update automatically once confirmed.');
+        // Same-tab redirect for demo mode (so the demo confirm page can come
+        // back via redirect=). Opens new tab for real provider checkouts.
+        if (res.data.demo) window.location.href = res.data.paymentUrl;
+        else { window.open(res.data.paymentUrl, '_blank'); alert('Complete the payment in the new window. This wallet will update automatically once confirmed.'); }
+      } else {
+        // Push-to-phone flow (MTN MoMo, M-Pesa STK, Airtel) — no URL, customer approves on handset.
+        alert('Check your phone — approve the payment prompt to complete the deposit.');
       }
       setDepositing(false);
-      setDepositForm({ amount: '', provider: 'FLUTTERWAVE', phone: '' });
+      setDepositForm({ amount: '', provider: depositForm.provider, phone: '' });
       setTimeout(load, 2000);
     } catch (err) {
       alert(err.response?.data?.message || 'Deposit failed');
@@ -126,17 +127,14 @@ export default function Wallet() {
                 style={{ width: '100%', background: C.cream, border: `1px solid ${C.border}`, borderRadius: 4, padding: '11px 14px', fontSize: 14, marginBottom: 16, fontFamily: 'inherit' }} />
 
               <label style={{ display: 'block', fontSize: 11, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>
-                Payment provider
+                Payment method
               </label>
-              {PROVIDERS.map(p => (
-                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: `1px solid ${depositForm.provider === p.id ? C.forest : C.border}`, borderRadius: 4, marginBottom: 8, cursor: 'pointer', background: depositForm.provider === p.id ? '#F0EDE0' : 'transparent' }}>
-                  <input type="radio" checked={depositForm.provider === p.id} onChange={() => setDepositForm({ ...depositForm, provider: p.id })} />
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: C.ink }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>{p.note}</div>
-                  </div>
-                </label>
-              ))}
+              <PaymentMethodPicker
+                country={wallet?.country || 'TG'}
+                value={depositForm.provider}
+                onChange={(code) => setDepositForm(prev => ({ ...prev, provider: code }))}
+              />
+              <div style={{ height: 12 }} />
 
               <label style={{ display: 'block', fontSize: 11, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, marginTop: 12 }}>
                 Phone number

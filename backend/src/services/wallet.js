@@ -120,7 +120,12 @@ async function initiateDeposit(businessId, amount, provider, customerPhone, cust
     walletId: wallet.id, type: 'DEPOSIT', status: 'PENDING', amount: amount.toString(),
     balanceBefore: wallet.balance, balanceAfter: wallet.balance,
     currency: wallet.currency, paymentProvider: provider,
-    externalRef: reference, description: 'Pending deposit — awaiting confirmation'
+    externalRef: reference,
+    // Store the provider's own ref so confirmDeposit() can verify against the
+    // right ID — many adapters (MTN, M-Pesa, Wave, Orange) cannot look up
+    // a payment by our externalRef.
+    providerRef: result.providerRef || reference,
+    description: 'Pending deposit — awaiting confirmation'
   });
   return { ...result, reference };
 }
@@ -181,7 +186,10 @@ async function confirmDeposit(reference) {
   let verification;
   try {
     const adapter = getAdapter(tx.paymentProvider);
-    verification = await adapter.verifyPayment(reference);
+    // Verify with provider using the providerRef stored at initiation. Falls
+    // back to the externalRef for adapters whose verify endpoint accepts our
+    // ref (Flutterwave, Paystack), which is what older rows have stored.
+    verification = await adapter.verifyPayment(tx.providerRef || reference);
   } catch (verifyErr) {
     // Transient error (network timeout, provider outage, etc.) — reset to PENDING so the
     // next webhook delivery (provider retry) can attempt the full flow again.

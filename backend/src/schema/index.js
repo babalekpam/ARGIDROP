@@ -13,7 +13,13 @@ const jobStatusEnum = pgEnum('job_status', [
 const jobUrgencyEnum = pgEnum('job_urgency', ['STANDARD', 'EXPRESS', 'INSTANT']);
 const bidStatusEnum = pgEnum('bid_status', ['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN']);
 const paymentStatusEnum = pgEnum('payment_status', ['PENDING', 'HELD', 'RELEASED', 'REFUNDED', 'FAILED']);
-const paymentProviderEnum = pgEnum('payment_provider', ['FLUTTERWAVE', 'MTN_MOMO', 'ORANGE_MONEY', 'WAVE', 'MOOV', 'TMONEY', 'STRIPE', 'BANK_TRANSFER']);
+// Provider codes match adapter.code in backend/src/services/payment-providers/.
+// Add new providers here (and run db:push) before referencing them anywhere.
+const paymentProviderEnum = pgEnum('payment_provider', [
+  'FLUTTERWAVE', 'PAYSTACK', 'STRIPE', 'BANK_TRANSFER',
+  'MTN_MOMO', 'ORANGE_MONEY', 'WAVE', 'MOOV', 'AIRTEL_MONEY', 'MPESA',
+  'TMONEY', 'FLOOZ', 'VODAFONE_CASH', 'AIRTELTIGO_MONEY', 'TIGO_CASH', 'FREE_MONEY',
+]);
 const docTypeEnum = pgEnum('doc_type', [
   // Identity
   'SELFIE',               // Live selfie photo
@@ -118,6 +124,10 @@ const walletTransactions = pgTable('wallet_transactions', {
   jobId: uuid('job_id'),
   paymentProvider: paymentProviderEnum('payment_provider'),
   externalRef: text('external_ref'),
+  // providerRef = the ID returned by the provider at initiation
+  // (MTN X-Reference-Id, M-Pesa CheckoutRequestID, Wave session id, Orange pay_token).
+  // Used by adapter.verifyPayment() — providers don't all accept lookup-by-our-tx_ref.
+  providerRef: text('provider_ref'),
   description: text('description'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => ({
