@@ -28,10 +28,14 @@
     "react-native-gesture-handler": "~2.14.0",
     "react-native-reanimated": "~3.6.2",
     "socket.io-client": "^4.6.1",
-    "axios": "^1.6.5",
+    "axios": "^1.14.0",
     "@expo/vector-icons": "^14.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
+  },
+  "overrides": {
+    "lodash": "^4.17.21",
+    "uuid": "^11.0.5"
   }
 }
