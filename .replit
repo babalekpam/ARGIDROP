@@ -8,8 +8,6 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
-PORT = "3000"
-NODE_ENV = "development"
 PLATFORM_COMMISSION = "18"
 DEFAULT_CURRENCY = "XOF"
 DEFAULT_COUNTRY = "TG"
@@ -23,6 +21,11 @@ AT_SENDER_ID = "ARGIDROP"
 
 [userenv.production]
 ALLOWED_ORIGINS = "https://www.argidrop.com,https://argidrop.com"
+NODE_ENV = "production"
+
+[userenv.development]
+PORT = "3000"
+NODE_ENV = "development"
 
 [workflows]
 runButton = "Project"
