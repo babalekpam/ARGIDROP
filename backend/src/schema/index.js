@@ -110,6 +110,7 @@ const walletTransactions = pgTable('wallet_transactions', {
   id: uuid('id').defaultRandom().primaryKey(),
   walletId: uuid('wallet_id').references(() => businessWallets.id, { onDelete: 'cascade' }).notNull(),
   type: walletTxTypeEnum('type').notNull(),
+  status: text('status').default('PENDING').notNull(),
   amount: decimal('amount', { precision: 14, scale: 2 }).notNull(),
   balanceBefore: decimal('balance_before', { precision: 14, scale: 2 }).notNull(),
   balanceAfter: decimal('balance_after', { precision: 14, scale: 2 }).notNull(),
@@ -119,7 +120,9 @@ const walletTransactions = pgTable('wallet_transactions', {
   externalRef: text('external_ref'),
   description: text('description'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (t) => ({
+  externalRefUnique: uniqueIndex('wallet_tx_external_ref_unique').on(t.externalRef),
+}));
 
 const drivers = pgTable('drivers', {
   id: uuid('id').defaultRandom().primaryKey(),

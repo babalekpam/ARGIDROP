@@ -9,7 +9,7 @@ const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, 
 const { authenticate, requireRole } = require('../middleware/auth');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
-const { hasAvailableBalance, holdFunds, returnHold } = require('../services/wallet');
+const { holdFunds, returnHold } = require('../services/wallet');
 const { generatePickupCode } = require('../services/qr');
 const { sendPushNotification, sendSMS } = require('../services/notification');
 const { uploadFile, getSignedUrl } = require('../services/storage');
@@ -78,11 +78,13 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
 
     // ─── WALLET PATH ───
     if (paymentMethod === 'wallet') {
-      if (!(await hasAvailableBalance(business.id, priceOffered))) {
+      let holdResult;
+      try {
+        holdResult = await holdFunds(business.id, job.id, priceOffered);
+      } catch (holdErr) {
         await db.update(jobs).set({ status: 'EXPIRED' }).where(eq(jobs.id, job.id));
-        return res.status(402).json({ success: false, code: 'INSUFFICIENT_FUNDS', message: `Insufficient wallet balance. Top up your wallet or pay via mobile money.` });
+        return res.status(402).json({ success: false, code: 'INSUFFICIENT_FUNDS', message: 'Insufficient wallet balance. Top up your wallet or pay via mobile money.' });
       }
-      await holdFunds(business.id, job.id, priceOffered);
 
       // Payment record
       const commissionRate = 18;

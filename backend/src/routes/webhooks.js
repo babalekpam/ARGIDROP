@@ -33,7 +33,14 @@ router.post('/flutterwave', express.json(), async (req, res) => {
     res.json({ received: true });
   } catch (err) {
     console.error('Flutterwave webhook error:', err);
-    res.status(200).json({ received: true }); // always 200 to prevent retries on parsing errors
+    if (err.retryable) {
+      // Transient error (concurrent handler, provider timeout, etc.) — return non-200 so
+      // Flutterwave retries the delivery once the transient condition clears.
+      return res.status(503).json({ error: 'Transient error — please retry' });
+    }
+    // Permanent error (bad reference, failed payment, etc.) — always 200 to prevent
+    // infinite retries for events we cannot process regardless of how many times delivered.
+    res.status(200).json({ received: true });
   }
 });
 
