@@ -20,7 +20,8 @@ export default function Register() {
     try {
       const user = await register(form);
       toast.success('Account created');
-      navigate(user.role === 'BUSINESS' ? '/onboarding' : '/dashboard');
+      const dest = user.role === 'DRIVER' ? '/driver' : user.role === 'BUSINESS' ? '/onboarding' : '/dashboard';
+      navigate(dest);
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Registration failed');
     }

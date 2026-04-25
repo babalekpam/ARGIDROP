@@ -16,7 +16,8 @@ export default function Login() {
     try {
       const u = await login(form.email, form.password);
       toast.success('Welcome back!');
-      nav(u.role === 'ADMIN' ? '/admin' : '/dashboard');
+      const dest = u.role === 'ADMIN' ? '/admin' : u.role === 'DRIVER' ? '/driver' : '/dashboard';
+      nav(dest);
     }
     catch(err) { toast.error(err.response?.data?.message || 'Login failed'); }
     finally { setLoading(false); }

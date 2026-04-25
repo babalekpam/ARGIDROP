@@ -23,6 +23,9 @@ import BusinessOnboarding from './pages/business/Onboarding';
 import Listings from './pages/business/Listings';
 import Marketplace from './pages/business/Marketplace';
 
+// Driver
+import DriverDashboard from './pages/driver/Dashboard';
+
 // Admin
 import AdminLayout from './pages/admin/Layout';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -87,6 +90,9 @@ export default function App() {
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="profile" element={<Profile />} />
           </Route>
+
+          {/* Driver */}
+          <Route path="/driver" element={<ProtectedRoute role="DRIVER"><DriverDashboard /></ProtectedRoute>} />
 
           {/* Admin */}
           <Route path="/admin" element={<ProtectedRoute role="ADMIN"><AdminLayout /></ProtectedRoute>}>
