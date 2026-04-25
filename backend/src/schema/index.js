@@ -1,4 +1,4 @@
-const { pgTable, text, integer, decimal, boolean, timestamp, jsonb, uuid, pgEnum } = require('drizzle-orm/pg-core');
+const { pgTable, text, integer, decimal, boolean, timestamp, jsonb, uuid, pgEnum, uniqueIndex } = require('drizzle-orm/pg-core');
 
 // ─── ENUMS ───
 const userRoleEnum = pgEnum('user_role', ['BUSINESS', 'DRIVER', 'ADMIN', 'ZONE_MANAGER']);
@@ -374,7 +374,9 @@ const ratings = pgTable('ratings', {
   score: integer('score').notNull(),
   comment: text('comment'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (t) => ({
+  oneRatingPerRaterPerJob: uniqueIndex('ratings_job_rater_unique').on(t.jobId, t.ratedByUserId),
+}));
 
 const messages = pgTable('messages', {
   id: uuid('id').defaultRandom().primaryKey(),

@@ -12,7 +12,7 @@ const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = req
 const { hasAvailableBalance, holdFunds, returnHold } = require('../services/wallet');
 const { generatePickupCode } = require('../services/qr');
 const { sendPushNotification, sendSMS } = require('../services/notification');
-const { uploadFile } = require('../services/storage');
+const { uploadFile, getSignedUrl } = require('../services/storage');
 const { getIO } = require('../socket');
 
 const router = express.Router();
@@ -240,15 +240,111 @@ router.get('/available', authenticate, requireRole('DRIVER'), async (req, res, n
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const db = getDB();
-    const [result] = await db.select({ job: jobs, business: businesses, driver: drivers })
+    const [result] = await db.select({
+      job: jobs,
+      business: {
+        id: businesses.id,
+        companyName: businesses.companyName,
+        rating: businesses.rating,
+        country: businesses.country,
+      },
+      driver: {
+        id: drivers.id,
+        rating: drivers.rating,
+        vehicleType: drivers.vehicleType,
+        vehicleMake: drivers.vehicleMake,
+        vehicleModel: drivers.vehicleModel,
+        vehiclePlate: drivers.vehiclePlate,
+        vehicleColor: drivers.vehicleColor,
+        isOnline: drivers.isOnline,
+        currentLat: drivers.currentLat,
+        currentLng: drivers.currentLng,
+      }
+    })
       .from(jobs)
       .leftJoin(businesses, eq(jobs.businessId, businesses.id))
       .leftJoin(drivers, eq(jobs.driverId, drivers.id))
       .where(eq(jobs.id, req.params.id))
       .limit(1);
     if (!result) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // Authorization: caller must be the owning business, the assigned driver, or an admin
+    if (req.user.role !== 'ADMIN') {
+      if (req.user.role === 'BUSINESS') {
+        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        if (!business || result.business?.id !== business.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else if (req.user.role === 'DRIVER') {
+        const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+        if (!driver || result.driver?.id !== driver.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
     const stops = await db.select().from(jobStops).where(eq(jobStops.jobId, req.params.id));
-    res.json({ success: true, ...result, stops });
+    // Redact the raw proof URL — served via the dedicated /proof endpoint as a signed URL
+    const { deliveryProofUrl: _redacted, ...safeJob } = result.job;
+    res.json({
+      success: true,
+      job: { ...safeJob, hasDeliveryProof: !!result.job.deliveryProofUrl },
+      business: result.business,
+      driver: result.driver,
+      stops,
+    });
+  } catch (err) { next(err); }
+});
+
+/**
+ * GET /jobs/:id/proof
+ * Returns a short-lived signed URL for the delivery proof photo.
+ * Only accessible to the owning business, the assigned driver, or an admin.
+ */
+router.get('/:id/proof', authenticate, async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job.deliveryProofUrl) return res.status(404).json({ success: false, message: 'No proof uploaded for this job' });
+
+    if (req.user.role !== 'ADMIN') {
+      if (req.user.role === 'BUSINESS') {
+        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        if (!business || job.businessId !== business.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else if (req.user.role === 'DRIVER') {
+        const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+        if (!driver || job.driverId !== driver.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    // Extract the S3/R2 object key from the stored URL and generate a signed URL
+    if (!process.env.AWS_S3_BUCKET) {
+      return res.json({ success: true, url: job.deliveryProofUrl, expiresIn: null });
+    }
+    const bucket = process.env.AWS_S3_BUCKET;
+    let objectKey;
+    try {
+      const parsed = new URL(job.deliveryProofUrl);
+      let keyCandidate = parsed.pathname.replace(/^\//, '');
+      // Path-style (R2 or forcePathStyle): /<bucket>/<key>
+      if (keyCandidate.startsWith(bucket + '/')) {
+        keyCandidate = keyCandidate.slice(bucket.length + 1);
+      }
+      objectKey = keyCandidate;
+    } catch {
+      return res.json({ success: true, url: job.deliveryProofUrl, expiresIn: null });
+    }
+    const signedUrl = await getSignedUrl(objectKey, 900); // 15 minutes
+    res.json({ success: true, url: signedUrl, expiresIn: 900 });
   } catch (err) { next(err); }
 });
 
@@ -306,6 +402,23 @@ router.post('/:id/cancel', authenticate, async (req, res, next) => {
     const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
     if (['DELIVERED', 'COMPLETED'].includes(job.status)) return res.status(400).json({ success: false, message: 'Cannot cancel completed job' });
+
+    // Authorization: only the owning business, the assigned driver, or an admin may cancel
+    if (req.user.role !== 'ADMIN') {
+      if (req.user.role === 'BUSINESS') {
+        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        if (!business || job.businessId !== business.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else if (req.user.role === 'DRIVER') {
+        const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+        if (!driver || job.driverId !== driver.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
 
     await db.update(jobs).set({
       status: 'CANCELLED', cancelReason: reason, cancelledBy: req.user.id, updatedAt: new Date()
@@ -368,14 +481,48 @@ router.post('/:id/proof', authenticate, requireRole('DRIVER'), upload.single('ph
 router.post('/:id/rate', authenticate, async (req, res, next) => {
   try {
     const db = getDB();
-    const { score, comment, ratedUserId } = req.body;
-    if (score < 1 || score > 5) return res.status(400).json({ success: false, message: 'Score must be 1-5' });
+    const { score, comment } = req.body;
+    if (!score || score < 1 || score > 5) return res.status(400).json({ success: false, message: 'Score must be 1-5' });
+
     const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
     if (!job || !['DELIVERED', 'COMPLETED'].includes(job.status)) {
       return res.status(400).json({ success: false, message: 'Job not delivered yet' });
     }
+
+    // Verify caller participated in this job and derive who is being rated
+    let ratedUserId;
+    if (req.user.role === 'BUSINESS') {
+      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      if (!business || job.businessId !== business.id) {
+        return res.status(403).json({ success: false, message: 'You did not place this job' });
+      }
+      // Business rates the driver
+      if (!job.driverId) return res.status(400).json({ success: false, message: 'No driver assigned to this job' });
+      const [driver] = await db.select().from(drivers).where(eq(drivers.id, job.driverId)).limit(1);
+      if (!driver) return res.status(400).json({ success: false, message: 'Driver not found' });
+      ratedUserId = driver.userId;
+    } else if (req.user.role === 'DRIVER') {
+      const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+      if (!driver || job.driverId !== driver.id) {
+        return res.status(403).json({ success: false, message: 'You were not the driver on this job' });
+      }
+      // Driver rates the business
+      const [business] = await db.select().from(businesses).where(eq(businesses.id, job.businessId)).limit(1);
+      if (!business) return res.status(400).json({ success: false, message: 'Business not found' });
+      ratedUserId = business.userId;
+    } else {
+      return res.status(403).json({ success: false, message: 'Only job participants may submit ratings' });
+    }
+
+    // Prevent duplicate ratings by the same user for the same job
+    const [existing] = await db.select().from(ratings)
+      .where(and(eq(ratings.jobId, job.id), eq(ratings.ratedByUserId, req.user.id)))
+      .limit(1);
+    if (existing) return res.status(409).json({ success: false, message: 'You have already rated this job' });
+
     await db.insert(ratings).values({ jobId: job.id, ratedByUserId: req.user.id, ratedUserId, score, comment });
-    // Recalculate average
+
+    // Recalculate average for the rated user
     const allRatings = await db.select().from(ratings).where(eq(ratings.ratedUserId, ratedUserId));
     const avg = allRatings.reduce((s, r) => s + r.score, 0) / allRatings.length;
     const [ratedUser] = await db.select().from(users).where(eq(users.id, ratedUserId)).limit(1);
@@ -390,6 +537,27 @@ router.post('/:id/dispute', authenticate, async (req, res, next) => {
   try {
     const db = getDB();
     const { reason, description, evidenceUrls } = req.body;
+
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // Authorization: only the owning business or the assigned driver may raise a dispute
+    if (req.user.role !== 'ADMIN') {
+      if (req.user.role === 'BUSINESS') {
+        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        if (!business || job.businessId !== business.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else if (req.user.role === 'DRIVER') {
+        const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+        if (!driver || job.driverId !== driver.id) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
     const [dispute] = await db.insert(disputes).values({
       jobId: req.params.id, raisedByUserId: req.user.id, reason, description, evidenceUrls: evidenceUrls || []
     }).returning();

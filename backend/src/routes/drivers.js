@@ -99,9 +99,11 @@ router.get('/jobs', authenticate, requireRole('DRIVER'), async (req, res, next) 
     const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
 
-    let query = db.select().from(jobs).where(eq(jobs.driverId, driver.id));
-    if (status) query = query.where(eq(jobs.status, status));
-    const result = await query.orderBy(desc(jobs.createdAt)).limit(50);
+    const conditions = [eq(jobs.driverId, driver.id)];
+    if (status) conditions.push(eq(jobs.status, status));
+    const result = await db.select().from(jobs)
+      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      .orderBy(desc(jobs.createdAt)).limit(50);
     res.json({ success: true, jobs: result });
   } catch (err) { next(err); }
 });
