@@ -102,10 +102,69 @@ app.use((req, res) => res.status(404).json({ success: false, message: 'Route not
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
+
+// Idempotent self-heal: ensure the canonical super-admin exists with the right
+// email + password on every boot. Safe to run repeatedly — it only writes
+// when the row is missing, the email is the legacy one, or the password hash
+// no longer matches the desired password. This lets prod/dev DBs converge
+// after a redeploy without needing manual SQL.
+async function ensureSuperAdmin() {
+  const desiredEmail = (process.env.SEED_ADMIN_EMAIL || 'admin@argidrop.com').toLowerCase();
+  const desiredPassword = process.env.SEED_ADMIN_PASSWORD || 'ArgiDropAdmin2026!!';
+  const legacyEmails = ['admin@argidrop.africa'];
+  try {
+    const bcrypt = require('bcryptjs');
+    const { eq, or, inArray } = require('drizzle-orm');
+    const { getDB } = require('./src/config/database');
+    const { users } = require('./src/schema');
+    const db = getDB();
+
+    // Find any existing admin row by desired or legacy email.
+    const candidates = await db.select().from(users)
+      .where(or(eq(users.email, desiredEmail), inArray(users.email, legacyEmails)));
+
+    if (candidates.length === 0) {
+      const hash = await bcrypt.hash(desiredPassword, 10);
+      await db.insert(users).values({
+        email: desiredEmail,
+        phone: '+22890000001',
+        passwordHash: hash,
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        firstName: 'Admin',
+        lastName: 'ArgiDrop',
+        emailVerified: true,
+        phoneVerified: true,
+        country: 'TG',
+        language: 'fr',
+      }).onConflictDoNothing();
+      console.log(`✅ Super-admin created: ${desiredEmail}`);
+      return;
+    }
+
+    // If only legacy rows exist, migrate the first one to the desired email.
+    const target = candidates.find(u => u.email === desiredEmail) || candidates[0];
+    const updates = {};
+    if (target.email !== desiredEmail) updates.email = desiredEmail;
+    const passwordOk = await bcrypt.compare(desiredPassword, target.passwordHash || '');
+    if (!passwordOk) updates.passwordHash = await bcrypt.hash(desiredPassword, 10);
+    if (target.role !== 'ADMIN') updates.role = 'ADMIN';
+    if (target.status !== 'ACTIVE') updates.status = 'ACTIVE';
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(users).set(updates).where(eq(users.id, target.id));
+      console.log(`✅ Super-admin updated: ${desiredEmail} (${Object.keys(updates).join(', ')})`);
+    }
+  } catch (err) {
+    console.warn('⚠️  ensureSuperAdmin skipped:', err.message);
+  }
+}
+
 (async () => {
   try {
     await initDB();
     console.log('✅ Database connected');
+    await ensureSuperAdmin();
     initSocket(io);
     console.log('✅ Socket.IO ready');
     await initQueues();
