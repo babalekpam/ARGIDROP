@@ -49,8 +49,18 @@ export default function ActiveDeliveryScreen({ route, navigation }) {
       </View>
 
       <View style={s.panel}>
-        <Text style={s.label}>ACTIVE DELIVERY · {status === 'MATCHED' ? 'Head to pickup' : 'Head to dropoff'}</Text>
-        <Text style={s.title}>{status === 'MATCHED' ? job?.pickupAddress : job?.dropoffAddress}</Text>
+        <View style={s.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.label}>ACTIVE DELIVERY · {status === 'MATCHED' ? 'Head to pickup' : 'Head to dropoff'}</Text>
+            <Text style={s.title}>{status === 'MATCHED' ? job?.pickupAddress : job?.dropoffAddress}</Text>
+          </View>
+          <TouchableOpacity
+            style={s.chatBtn}
+            onPress={() => navigation.navigate('Chat', { jobId, peerName: 'Merchant' })}
+          >
+            <Text style={s.chatBtnText}>Chat</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={s.price}>{job?.priceOffered} {job?.currency}</Text>
 
         {status === 'MATCHED' && (
@@ -70,9 +80,12 @@ export default function ActiveDeliveryScreen({ route, navigation }) {
 
 const s = StyleSheet.create({
   panel: { backgroundColor: C.paper, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, borderTopWidth: 1, borderTopColor: C.border },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   label: { fontSize: 10, color: C.bronze, letterSpacing: 1.2, fontWeight: '600', marginBottom: 8 },
   title: { fontSize: 16, fontWeight: '600', color: C.ink, marginBottom: 12 },
   price: { fontSize: 24, fontWeight: '500', color: C.forest, marginBottom: 16, fontFamily: 'System' },
   btnPrimary: { backgroundColor: C.forest, borderRadius: 6, padding: 14, alignItems: 'center' },
   btnText: { color: C.paper, fontWeight: '600', fontSize: 14 },
+  chatBtn: { borderWidth: 1, borderColor: C.border, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: C.cream },
+  chatBtnText: { color: C.forest, fontWeight: '600', fontSize: 12, letterSpacing: 0.5 },
 });

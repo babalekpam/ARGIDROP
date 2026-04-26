@@ -144,6 +144,23 @@ router.post('/verify-otp', authenticate, async (req, res, next) => {
 });
 
 // GET /me
+/**
+ * POST /me/push-token — register or refresh this user's push notification
+ * token (Expo push token preferred; legacy FCM accepted). Idempotent.
+ */
+router.post('/me/push-token', authenticate, async (req, res, next) => {
+  try {
+    const { token } = req.body || {};
+    if (typeof token !== 'string' || !token.trim()) {
+      return res.status(400).json({ success: false, message: 'token required' });
+    }
+    const db = getDB();
+    await db.update(users).set({ fcmToken: token.trim(), updatedAt: new Date() })
+      .where(eq(users.id, req.user.id));
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 router.get('/me', authenticate, async (req, res, next) => {
   try {
     const db = getDB();

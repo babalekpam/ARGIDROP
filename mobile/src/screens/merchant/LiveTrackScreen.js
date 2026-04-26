@@ -145,6 +145,12 @@ export default function LiveTrackScreen({ route, navigation }) {
               </Text>
               {driver.vehiclePlate && <Text style={s.driverPlate}>{driver.vehiclePlate}</Text>}
             </View>
+            <TouchableOpacity
+              style={s.chatBtn}
+              onPress={() => navigation.navigate('Chat', { jobId, peerName: driver.firstName || 'Driver' })}
+            >
+              <Ionicons name="chatbubble-ellipses" size={18} color={C.forest} />
+            </TouchableOpacity>
             {driver.phone && (
               <TouchableOpacity style={s.callBtn} onPress={callDriver}>
                 <Ionicons name="call" size={18} color={C.paper} />
@@ -192,6 +198,7 @@ const s = StyleSheet.create({
   driverName: { fontSize: 15, color: C.ink, fontWeight: '500', marginTop: 2 },
   driverPlate: { fontFamily: 'monospace', fontSize: 12, color: C.muted, marginTop: 2, letterSpacing: 1 },
   callBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.forest, alignItems: 'center', justifyContent: 'center' },
+  chatBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.cream, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
 
   btn: { backgroundColor: C.forest, borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 4 },
   btnText: { color: C.paper, fontWeight: '600', fontSize: 14 },

@@ -1,17 +1,44 @@
 const axios = require('axios');
 
-async function sendPushNotification(fcmToken, title, body, data = {}) {
-  if (!fcmToken || !process.env.FCM_SERVER_KEY) return;
+/**
+ * Send a push notification.
+ *
+ * Auto-detects the token type:
+ *   - "ExponentPushToken[...]" or "ExpoPushToken[...]" → routed via Expo's push API
+ *     (no auth required for the public sending endpoint).
+ *   - Anything else → treated as a legacy FCM device token; requires FCM_SERVER_KEY.
+ *
+ * Errors are logged but never thrown — callers should treat this as best-effort.
+ */
+async function sendPushNotification(token, title, body, data = {}) {
+  if (!token) return;
+  const isExpo = /^Expo(nent)?PushToken\[/.test(token);
   try {
+    if (isExpo) {
+      await axios.post('https://exp.host/--/api/v2/push/send', {
+        to: token,
+        title,
+        body,
+        sound: 'default',
+        priority: 'high',
+        data: { ...data },
+      }, {
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        timeout: 8000,
+      });
+      return;
+    }
+    if (!process.env.FCM_SERVER_KEY) return;
     await axios.post('https://fcm.googleapis.com/fcm/send', {
-      to: fcmToken,
+      to: token,
       notification: { title, body, sound: 'default', badge: '1' },
       data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' }
     }, {
-      headers: { Authorization: `key=${process.env.FCM_SERVER_KEY}`, 'Content-Type': 'application/json' }
+      headers: { Authorization: `key=${process.env.FCM_SERVER_KEY}`, 'Content-Type': 'application/json' },
+      timeout: 8000,
     });
   } catch (err) {
-    console.error('FCM error:', err.response?.data || err.message);
+    console.error(isExpo ? 'Expo push error:' : 'FCM error:', err.response?.data || err.message);
   }
 }
 

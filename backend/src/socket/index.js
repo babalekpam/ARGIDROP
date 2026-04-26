@@ -1,7 +1,8 @@
 const { getDB } = require('../config/database');
-const { drivers, users, businesses, jobs } = require('../schema');
+const { drivers, users, businesses, jobs, messages } = require('../schema');
 const { eq } = require('drizzle-orm');
 const jwt = require('jsonwebtoken');
+const { sendPushNotification } = require('../services/notification');
 
 let io;
 
@@ -125,20 +126,61 @@ function initSocket(socketIO) {
     });
 
     // Chat: only participants may post into a job's chat room.
+    // Persists to messages table, broadcasts to the job room, then sends a
+    // push to the recipient if their device token is on file.
     socket.on('chat:message', async ({ jobId, content }) => {
       if (typeof jobId !== 'string' || !jobId || typeof content !== 'string' || !content.trim()) return;
+      const trimmed = content.trim().slice(0, 2000);
       const allowed = await isJobParticipant(socket, jobId);
       if (!allowed) {
         console.warn(`🚫 chat:message denied: user=${socket.userId} jobId=${jobId}`);
         return socket.emit('error:unauthorized', { event: 'chat:message', jobId });
       }
-      io.to(`job:${jobId}`).emit('chat:message', {
-        jobId,
-        senderId: socket.userId,
-        senderRole: socket.role,
-        content,
-        timestamp: new Date(),
-      });
+      try {
+        const db = getDB();
+        // Resolve the recipient (the OTHER participant on the job)
+        const [job] = await db.select({
+          businessUserId: businesses.userId,
+          driverUserId: users.id,
+        }).from(jobs)
+          .leftJoin(businesses, eq(jobs.businessId, businesses.id))
+          .leftJoin(drivers, eq(jobs.driverId, drivers.id))
+          .leftJoin(users, eq(drivers.userId, users.id))
+          .where(eq(jobs.id, jobId)).limit(1);
+        if (!job) return;
+
+        // Recipient = the participant whose userId is NOT the sender
+        let recipientId = null;
+        if (job.businessUserId && job.businessUserId !== socket.userId) recipientId = job.businessUserId;
+        else if (job.driverUserId && job.driverUserId !== socket.userId) recipientId = job.driverUserId;
+        if (!recipientId) return; // no driver assigned yet; drop silently
+
+        const [row] = await db.insert(messages).values({
+          jobId, senderId: socket.userId, recipientId, content: trimmed,
+        }).returning();
+
+        io.to(`job:${jobId}`).emit('chat:message', {
+          id: row.id,
+          jobId,
+          senderId: socket.userId,
+          senderRole: socket.role,
+          recipientId,
+          content: trimmed,
+          createdAt: row.createdAt,
+        });
+
+        // Push notify the recipient (best-effort)
+        const [recipient] = await db.select({ token: users.fcmToken, firstName: users.firstName })
+          .from(users).where(eq(users.id, recipientId)).limit(1);
+        if (recipient?.token) {
+          sendPushNotification(recipient.token, 'New message',
+            trimmed.length > 80 ? trimmed.slice(0, 77) + '…' : trimmed,
+            { type: 'CHAT_MESSAGE', jobId }
+          ).catch(() => {});
+        }
+      } catch (err) {
+        console.error('chat:message persist error:', err);
+      }
     });
 
     socket.on('disconnect', async () => {

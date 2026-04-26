@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import api from '../utils/api';
+import { registerPushToken } from '../utils/push';
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,7 @@ export function AuthProvider({ children }) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const res = await api.get('/auth/me');
         setUser(attachProfile(res.data.user, res.data.profile));
+        registerPushToken().catch(() => {});
       }
     } catch (e) {
       await SecureStore.deleteItemAsync('argidrop_token');
@@ -46,6 +48,7 @@ export function AuthProvider({ children }) {
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
     const fullUser = attachProfile(userData, profile);
     setUser(fullUser);
+    registerPushToken().catch(() => {});
     return fullUser;
   };
 
@@ -57,6 +60,7 @@ export function AuthProvider({ children }) {
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
     const fullUser = attachProfile(userData, null);
     setUser(fullUser);
+    registerPushToken().catch(() => {});
     return fullUser;
   };
 

@@ -33,6 +33,9 @@ import LiveTrackScreen from '../screens/merchant/LiveTrackScreen';
 import RateDriverScreen from '../screens/merchant/RateDriverScreen';
 import MerchantJobDetailScreen from '../screens/merchant/JobDetailScreen';
 
+// Shared
+import ChatScreen from '../screens/shared/ChatScreen';
+
 const Stack = createStackNavigator();
 
 function pickInitialRoute(user) {
@@ -93,6 +96,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="PayoutPinSetup" component={PayoutPinSetupScreen} />
           <Stack.Screen name="EndShift" component={EndShiftScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
         </>
       ) : user.role === 'BUSINESS' ? (
         <>
@@ -106,6 +110,7 @@ export default function RootNavigator() {
           <Stack.Screen name="LiveTrack" component={LiveTrackScreen} />
           <Stack.Screen name="RateDriver" component={RateDriverScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="JobDetail" component={MerchantJobDetailScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
         </>
       ) : (
         <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />

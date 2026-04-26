@@ -8,7 +8,7 @@ const { jobs, businesses, drivers, users } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { scanPickupCode, scanDeliveryCode, ScanError } = require('../services/qr');
 const { getIO } = require('../socket');
-const { sendSMS } = require('../services/notification');
+const { sendSMS, sendPushNotification } = require('../services/notification');
 
 const router = express.Router();
 
@@ -75,6 +75,17 @@ router.post('/pickup', authenticate, requireRole('DRIVER'), async (req, res, nex
     const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
     io.to(`job:${jobId}`).emit('job:status_change', { jobId, status: 'IN_TRANSIT', pickupConfirmed: true });
     io.to(`business:${job.businessId}`).emit('job:picked_up', { jobId });
+
+    // Push merchant — driver picked up
+    const [bizRow] = await db.select({ user: users }).from(businesses)
+      .leftJoin(users, eq(businesses.userId, users.id))
+      .where(eq(businesses.id, job.businessId)).limit(1);
+    if (bizRow?.user?.fcmToken) {
+      sendPushNotification(bizRow.user.fcmToken, 'Driver picked up your package',
+        `Your delivery #${job.trackingToken} is on its way.`,
+        { type: 'JOB_PICKED_UP', jobId }
+      ).catch(() => {});
+    }
 
     // SMS recipient with tracking link — PIN hint is NOT co-disclosed with the link
     if (job.dropoffContactPhone) {
@@ -241,12 +252,18 @@ router.post('/delivery', authenticate, requireRole('DRIVER'), async (req, res, n
     io.to(`job:${jobId}`).emit('job:status_change', { jobId, status: 'DELIVERED', deliveredAt: new Date() });
     io.to(`business:${job.businessId}`).emit('job:delivered', { jobId });
 
-    // SMS business
+    // SMS + push business
     const [business] = await db.select({ biz: businesses, user: users }).from(businesses)
       .leftJoin(users, eq(businesses.userId, users.id))
       .where(eq(businesses.id, job.businessId)).limit(1);
     if (business?.user?.phone) {
       await sendSMS(business.user.phone, `✓ Livraison confirmée: ${job.trackingToken}. Le paiement est libéré.`).catch(() => {});
+    }
+    if (business?.user?.fcmToken) {
+      sendPushNotification(business.user.fcmToken, 'Delivery complete',
+        'Your package has been delivered. Tap to rate the driver.',
+        { type: 'JOB_DELIVERED', jobId }
+      ).catch(() => {});
     }
 
     res.json(result);

@@ -5,7 +5,7 @@ import api from '../../utils/api';
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9' };
 
 export default function RateDeliveryScreen({ route, navigation }) {
-  const { jobId, businessId, businessName } = route.params;
+  const { jobId, businessName } = route.params;
   const [score, setScore] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -16,7 +16,7 @@ export default function RateDeliveryScreen({ route, navigation }) {
     if (score === 0) return Alert.alert('Rate the delivery', 'Please select a star rating first');
     setSubmitting(true);
     try {
-      await api.post(`/jobs/${jobId}/rate`, { score, comment, ratedUserId:businessId });
+      await api.post(`/jobs/${jobId}/rate`, { score, comment });
       navigation.replace('DriverTabs');
     } catch {
       Alert.alert('Failed', 'Could not submit rating');

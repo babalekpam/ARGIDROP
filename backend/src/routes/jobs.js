@@ -5,7 +5,7 @@ const { eq, and, desc, or, sql, inArray } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
-const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, payments, zones } = require('../schema');
+const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, payments, zones, messages } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
@@ -534,8 +534,39 @@ router.post('/:id/rate', authenticate, async (req, res, next) => {
     const [ratedUser] = await db.select().from(users).where(eq(users.id, ratedUserId)).limit(1);
     if (ratedUser?.role === 'DRIVER') {
       await db.update(drivers).set({ rating: avg.toFixed(2), ratingCount: allRatings.length }).where(eq(drivers.userId, ratedUserId));
+    } else if (ratedUser?.role === 'BUSINESS') {
+      await db.update(businesses).set({ rating: avg.toFixed(2), ratingCount: allRatings.length }).where(eq(businesses.userId, ratedUserId));
     }
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+/**
+ * GET /api/v1/jobs/:id/messages — chat history for a job, participant-gated.
+ * Returns messages ordered by createdAt ASC (oldest first).
+ */
+router.get('/:id/messages', authenticate, async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, req.params.id)).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    if (req.user.role !== 'ADMIN') {
+      if (req.user.role === 'BUSINESS') {
+        const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        if (!biz || job.businessId !== biz.id) return res.status(403).json({ success: false, message: 'Access denied' });
+      } else if (req.user.role === 'DRIVER') {
+        const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+        if (!driver || job.driverId !== driver.id) return res.status(403).json({ success: false, message: 'Access denied' });
+      } else {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    const rows = await db.select().from(messages)
+      .where(eq(messages.jobId, req.params.id))
+      .orderBy(messages.createdAt);
+    res.json({ success: true, messages: rows });
   } catch (err) { next(err); }
 });
 
