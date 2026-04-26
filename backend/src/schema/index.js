@@ -97,6 +97,7 @@ const businesses = pgTable('businesses', {
   ratingCount: integer('rating_count').default(0),
   isVerifiedBadge: boolean('is_verified_badge').default(false),
   billingEmail: text('billing_email'),
+  kycSubmittedAt: timestamp('kyc_submitted_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

@@ -23,6 +23,7 @@ import ProofOfDeliveryScreen from '../screens/jobs/ProofOfDeliveryScreen';
 
 // Merchant
 import MerchantOnboardingScreen from '../screens/merchant/MerchantOnboardingScreen';
+import MerchantKYCScreen from '../screens/merchant/MerchantKYCScreen';
 import MerchantPendingScreen from '../screens/merchant/MerchantPendingScreen';
 import MerchantTabs from './MerchantTabs';
 
@@ -43,6 +44,8 @@ function pickInitialRoute(user) {
     // Treat onboarding as incomplete if no city/address yet (filled by merchant onboarding screen)
     const onboardingComplete = !!(profile && profile.city && profile.address);
     if (!onboardingComplete) return 'MerchantOnboarding';
+    // No documents uploaded yet → KYC step
+    if (!profile.documentsSubmitted) return 'MerchantKYC';
     if (profile.verificationStatus === 'PENDING' || profile.verificationStatus === 'REJECTED') return 'MerchantPending';
     return 'MerchantTabs';
   }
@@ -88,6 +91,7 @@ export default function RootNavigator() {
       ) : user.role === 'BUSINESS' ? (
         <>
           <Stack.Screen name="MerchantOnboarding" component={MerchantOnboardingScreen} />
+          <Stack.Screen name="MerchantKYC" component={MerchantKYCScreen} />
           <Stack.Screen name="MerchantPending" component={MerchantPendingScreen} />
           <Stack.Screen name="MerchantTabs" component={MerchantTabs} />
         </>

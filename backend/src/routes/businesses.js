@@ -69,15 +69,30 @@ router.post('/documents', authenticate, requireRole('BUSINESS'), upload.single('
   } catch (err) { next(err); }
 });
 
-// POST /submit-for-review — business marks themselves ready for admin KYC review
+// POST /submit-for-review — business marks themselves ready for admin KYC review.
+// We require the three minimum docs (BUSINESS_LICENSE, GOVT_ID_FRONT, SELFIE_WITH_ID)
+// and then stamp kycSubmittedAt as the explicit "they're done" signal.
 router.post('/submit-for-review', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
     const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
     const docs = await db.select().from(businessDocuments).where(eq(businessDocuments.businessId, biz.id));
-    if (docs.length < 1) return res.status(400).json({ success: false, message: 'Upload at least one verification document first' });
-    await db.update(businesses).set({ verificationStatus: 'PENDING', updatedAt: new Date() }).where(eq(businesses.id, biz.id));
+    const types = new Set(docs.map(d => d.docType));
+    const required = ['BUSINESS_LICENSE', 'GOVT_ID_FRONT', 'SELFIE_WITH_ID'];
+    const missing = required.filter(t => !types.has(t));
+    if (missing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload all required documents before submitting',
+        missing,
+      });
+    }
+    await db.update(businesses).set({
+      verificationStatus: 'PENDING',
+      kycSubmittedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(businesses.id, biz.id));
     res.json({ success: true, message: 'Submitted for review' });
   } catch (err) { next(err); }
 });

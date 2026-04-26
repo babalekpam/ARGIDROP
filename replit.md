@@ -86,7 +86,7 @@ argidrop/
 
 - **Unified app** — single Expo binary serves both Driver and Merchant roles. `RootNavigator.js` mounts `DriverTabs` or `MerchantTabs` based on `user.role` from `AuthContext`. New users land on `RoleSelectScreen`.
 - Driver screens: auth, KYC, driver dashboard, jobs (browse → bid → accept → pickup → delivery → proof → rating), earnings, support.
-- Merchant screens: onboarding, pending-review, home (active jobs), history, new delivery (placeholder), more.
+- Merchant screens: register → onboarding (company info) → KYC (BUSINESS_LICENSE + GOVT_ID_FRONT + SELFIE_WITH_ID required, optional PROOF_OF_ADDRESS) → pending-review → tabs (Home / History / NewDelivery / More).
 - Maps: `mobile/src/components/MapView.js` — WebView wrapping maplibre-gl JS + MapTiler tiles. No native map module / Google key required (works in Expo Go). Reads key from `EXPO_PUBLIC_MAPTILER_KEY` env or `app.json` extra. Uses a postMessage bridge with a `ready` handshake; pending state is queued and flushed on map load. Updates markers, center, zoom, and the user-location dot dynamically without rebuilding HTML.
 - Assets: placeholder PNGs in `mobile/assets/` (icon, adaptive-icon, splash, notification-icon, favicon) so Expo can boot without missing-file crashes.
 - `mobile/app.json`: removed broken EAS placeholder, added iOS Info.plist permissions for camera/location, exposes `extra.maptilerKey`.

@@ -36,7 +36,7 @@ export default function MerchantOnboardingScreen({ navigation }) {
     try {
       await api.patch('/businesses/profile', form);
       await refreshUser();
-      navigation.replace('MerchantPending');
+      navigation.replace('MerchantKYC');
     } catch (err) {
       Alert.alert('Save failed', err.response?.data?.message || 'Please try again.');
     } finally {

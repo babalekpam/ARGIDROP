@@ -1,9 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { eq, and, gt } = require('drizzle-orm');
+const { eq, and, gt, sql } = require('drizzle-orm');
 const { getDB } = require('../config/database');
-const { users, businesses, drivers, otpCodes } = require('../schema');
+const { users, businesses, drivers, otpCodes, businessDocuments, driverDocuments } = require('../schema');
 const { authenticate, generateTokens } = require('../middleware/auth');
 const { sendSMS } = require('../services/notification');
 
@@ -64,14 +64,7 @@ router.post('/login', async (req, res, next) => {
 
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    let profile = null;
-    if (user.role === 'BUSINESS') {
-      const [b] = await db.select().from(businesses).where(eq(businesses.userId, user.id)).limit(1);
-      profile = b;
-    } else if (user.role === 'DRIVER') {
-      const [d] = await db.select().from(drivers).where(eq(drivers.userId, user.id)).limit(1);
-      profile = d;
-    }
+    const profile = await loadProfileWithDocs(db, user);
 
     const tokens = generateTokens(user.id, user.role);
     res.json({
@@ -82,6 +75,32 @@ router.post('/login', async (req, res, next) => {
     });
   } catch (err) { next(err); }
 });
+
+// Shared helper: returns the role-specific profile enriched with documentsCount
+// and a documentsSubmitted flag derived from the canonical submission timestamp
+// (kycSubmittedAt for businesses, payoutPinSetAt is unrelated — drivers use their
+// own documentsCount-only signal because driver docs are graded individually).
+async function loadProfileWithDocs(db, user) {
+  if (user.role === 'BUSINESS') {
+    const [b] = await db.select().from(businesses).where(eq(businesses.userId, user.id)).limit(1);
+    if (!b) return null;
+    const [{ count: docCount }] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(businessDocuments)
+      .where(eq(businessDocuments.businessId, b.id));
+    return { ...b, documentsCount: docCount || 0, documentsSubmitted: !!b.kycSubmittedAt };
+  }
+  if (user.role === 'DRIVER') {
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, user.id)).limit(1);
+    if (!d) return null;
+    const [{ count: docCount }] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(driverDocuments)
+      .where(eq(driverDocuments.driverId, d.id));
+    return { ...d, documentsCount: docCount || 0, documentsSubmitted: (docCount || 0) > 0 };
+  }
+  return null;
+}
 
 // POST /send-otp
 router.post('/send-otp', authenticate, async (req, res, next) => {
@@ -128,14 +147,7 @@ router.post('/verify-otp', authenticate, async (req, res, next) => {
 router.get('/me', authenticate, async (req, res, next) => {
   try {
     const db = getDB();
-    let profile = null;
-    if (req.user.role === 'BUSINESS') {
-      const [b] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
-      profile = b;
-    } else if (req.user.role === 'DRIVER') {
-      const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
-      profile = d;
-    }
+    const profile = await loadProfileWithDocs(db, req.user);
     const { passwordHash, ...safeUser } = req.user;
     res.json({ success: true, user: safeUser, profile });
   } catch (err) { next(err); }
