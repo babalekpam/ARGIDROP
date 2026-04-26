@@ -45,6 +45,8 @@ const docTypeEnum = pgEnum('doc_type', [
 const disputeStatusEnum = pgEnum('dispute_status', ['OPEN', 'UNDER_REVIEW', 'RESOLVED_BUSINESS', 'RESOLVED_DRIVER', 'CLOSED']);
 const scanTypeEnum = pgEnum('scan_type', ['PAYMENT', 'PICKUP', 'DELIVERY']);
 const walletTxTypeEnum = pgEnum('wallet_tx_type', ['DEPOSIT', 'HOLD', 'RELEASE', 'REFUND', 'WITHDRAWAL', 'FEE']);
+const driverPayoutStatusEnum = pgEnum('driver_payout_status', ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED']);
+const driverPayoutTriggerEnum = pgEnum('driver_payout_trigger', ['END_SHIFT', 'NIGHTLY_AUTO', 'ADMIN_MANUAL']);
 
 // ─── USERS ───
 const users = pgTable('users', {
@@ -161,6 +163,15 @@ const drivers = pgTable('drivers', {
   totalEarnings: decimal('total_earnings', { precision: 14, scale: 2 }).default('0.00'),
   payoutProvider: paymentProviderEnum('payout_provider').default('FLUTTERWAVE'),
   payoutAccount: text('payout_account'),
+  // PIN-gated end-of-shift payout (set during onboarding, used to authorize cash-out)
+  payoutPinHash: text('payout_pin_hash'),
+  payoutPhone: text('payout_phone'),         // mobile money number receiving payouts
+  payoutPinSetAt: timestamp('payout_pin_set_at'),
+  // Shift + pending earnings tracking
+  pendingEarnings: decimal('pending_earnings', { precision: 14, scale: 2 }).default('0.00'),
+  isOnShift: boolean('is_on_shift').default(false),
+  shiftStartedAt: timestamp('shift_started_at'),
+  shiftEndedAt: timestamp('shift_ended_at'),
   isEliteBadge: boolean('is_elite_badge').default(false),
   // KYC fields
   selfieUrl: text('selfie_url'),
@@ -429,6 +440,28 @@ const disputes = pgTable('disputes', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ─── DRIVER PAYOUTS ───
+// Each row = one disbursement attempt (end-of-shift, nightly cron, or admin-manual).
+// We never store an indefinite balance — pendingEarnings on `drivers` is short-lived
+// and zeroed when a SUCCESS payout is recorded.
+const driverPayouts = pgTable('driver_payouts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  driverId: uuid('driver_id').references(() => drivers.id, { onDelete: 'cascade' }).notNull(),
+  amount: decimal('amount', { precision: 14, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  provider: paymentProviderEnum('provider').notNull(),
+  providerRef: text('provider_ref'),
+  status: driverPayoutStatusEnum('status').default('PENDING'),
+  trigger: driverPayoutTriggerEnum('trigger').notNull(),
+  destinationPhone: text('destination_phone').notNull(),
+  failureReason: text('failure_reason'),
+  jobsCount: integer('jobs_count').default(0),    // how many deliveries this payout covered
+  shiftStartedAt: timestamp('shift_started_at'),
+  shiftEndedAt: timestamp('shift_ended_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  completedAt: timestamp('completed_at'),
+});
+
 const platformSettings = pgTable('platform_settings', {
   id: uuid('id').defaultRandom().primaryKey(),
   key: text('key').notNull().unique(),
@@ -568,9 +601,11 @@ module.exports = {
   jobStatusEnum, jobUrgencyEnum, bidStatusEnum, paymentStatusEnum,
   paymentProviderEnum, docTypeEnum, disputeStatusEnum, scanTypeEnum,
   walletTxTypeEnum, merchantTierEnum, listingStatusEnum, listingTypeEnum,
+  driverPayoutStatusEnum, driverPayoutTriggerEnum,
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
   jobs, qrScanEvents, jobBids, jobStops, driverLocations,
   payments, ratings, messages, notifications, disputes, platformSettings,
+  driverPayouts,
   merchantSubscriptions, merchantListings, listingPhotos, merchantProfiles, deliveryPricing
 };

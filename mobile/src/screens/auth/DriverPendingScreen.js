@@ -9,6 +9,7 @@ const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', bronze: '#8B6
 export default function DriverPendingScreen({ navigation }) {
   const { refreshUser, logout } = useAuth();
   const [status, setStatus] = useState(null);
+  const [pinSet, setPinSet] = useState(false);
 
   useEffect(() => {
     const check = async () => {
@@ -19,6 +20,10 @@ export default function DriverPendingScreen({ navigation }) {
           await refreshUser();
           navigation.replace('DriverTabs');
         }
+      } catch {}
+      try {
+        const ps = await api.get('/drivers/payout-status');
+        setPinSet(!!ps.data.pinSet);
       } catch {}
     };
     check();
@@ -46,6 +51,15 @@ export default function DriverPendingScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         )}
+        {!pinSet && (
+          <View style={s.prepBox}>
+            <Text style={s.prepTitle}>While you wait</Text>
+            <Text style={s.prepText}>Set up your payout PIN now so your earnings are ready to cash out the moment you're approved.</Text>
+            <TouchableOpacity style={s.btnPrimary} onPress={() => navigation.navigate('PayoutPinSetup', { onSuccess: () => setPinSet(true) })}>
+              <Text style={s.btnPrimaryText}>Set up payout PIN</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <TouchableOpacity style={s.btnGhost} onPress={logout}>
           <Text style={s.btnGhostText}>Sign out</Text>
         </TouchableOpacity>
@@ -68,4 +82,9 @@ const s = StyleSheet.create({
   btnOutlineText: { color: C.forest, fontWeight: '600', fontSize: 13 },
   btnGhost: { paddingVertical: 8 },
   btnGhostText: { color: C.muted, fontSize: 13 },
+  prepBox: { backgroundColor: C.cream, borderWidth: 1, borderColor: C.border, borderRadius: 6, padding: 16, marginBottom: 14, width: '100%' },
+  prepTitle: { fontSize: 12, color: C.bronze, letterSpacing: 1.2, fontWeight: '700', marginBottom: 6 },
+  prepText: { fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 18 },
+  btnPrimary: { backgroundColor: C.forest, borderRadius: 6, padding: 11, alignItems: 'center' },
+  btnPrimaryText: { color: C.paper, fontWeight: '600', fontSize: 13 },
 });

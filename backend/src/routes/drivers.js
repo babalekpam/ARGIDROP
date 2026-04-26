@@ -1,14 +1,30 @@
 const express = require('express');
-const { eq, and, desc } = require('drizzle-orm');
+const bcrypt = require('bcryptjs');
+const { eq, and, desc, gt } = require('drizzle-orm');
 const { getDB } = require('../config/database');
-const { drivers, users, driverDocuments, driverLocations, jobs } = require('../schema');
+const { drivers, users, driverDocuments, driverLocations, jobs, driverPayouts, otpCodes } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { uploadFile } = require('../services/storage');
+const { processEndShiftPayout } = require('../services/payout');
+const { sendSMS } = require('../services/notification');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const { getIO } = require('../socket');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
+
+// Anti-bruteforce limits for PIN-gated endpoints. Keyed by user id (not IP) so a
+// shared NAT can't lock everyone out, and so an attacker can't escape by IP-rotating.
+const pinKey = (req) => req.user?.id || req.ip;
+const endShiftLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 5, keyGenerator: pinKey, standardHeaders: true, legacyHeaders: false,
+  message: { success: false, message: 'Too many PIN attempts. Try again in 15 minutes.' },
+});
+const pinResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 3, keyGenerator: pinKey, standardHeaders: true, legacyHeaders: false,
+  message: { success: false, message: 'Too many reset requests. Try again in an hour.' },
+});
 
 // GET /profile
 router.get('/profile', authenticate, requireRole('DRIVER'), async (req, res, next) => {
@@ -66,17 +82,20 @@ router.patch('/location', authenticate, requireRole('DRIVER'), async (req, res, 
   } catch (err) { next(err); }
 });
 
-// PATCH /online-status
+// PATCH /online-status — legacy alias of /online. Same gating applies (approved + PIN + on-shift).
 router.patch('/online-status', authenticate, requireRole('DRIVER'), async (req, res, next) => {
   try {
     const db = getDB();
     const { isOnline } = req.body;
     const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
-    if (!driver.isActive) return res.status(403).json({ success: false, message: 'Account not verified yet' });
-
-    await db.update(drivers).set({ isOnline, updatedAt: new Date() }).where(eq(drivers.id, driver.id));
-    res.json({ success: true, isOnline });
+    if (isOnline) {
+      if (driver.verificationStatus !== 'APPROVED') return res.status(403).json({ success: false, message: 'Account not yet approved', code: 'NOT_APPROVED' });
+      if (!driver.payoutPinHash || !driver.payoutPhone) return res.status(400).json({ success: false, message: 'Set your payout PIN and phone before going online', code: 'PAYOUT_NOT_CONFIGURED' });
+      if (!driver.isOnShift) return res.status(400).json({ success: false, message: 'Start a shift before going online', code: 'NOT_ON_SHIFT' });
+    }
+    await db.update(drivers).set({ isOnline: !!isOnline, updatedAt: new Date() }).where(eq(drivers.id, driver.id));
+    res.json({ success: true, isOnline: !!isOnline });
   } catch (err) { next(err); }
 });
 
@@ -135,12 +154,21 @@ router.get('/earnings', authenticate, requireRole('DRIVER'), async (req, res, ne
   } catch (err) { next(err); }
 });
 
-// PATCH /online — Driver toggles online status
+// PATCH /online — driver toggles availability for new jobs.
+// Going online requires (a) approved status, (b) PIN+payout phone configured, (c) on shift.
+// Going offline is unrestricted (driver can always stop receiving jobs).
 router.patch('/online', authenticate, requireRole('DRIVER'), async (req, res, next) => {
   try {
     const db = getDB();
     const { online } = req.body;
-    await db.update(drivers).set({ isOnline: !!online, updatedAt: new Date() }).where(eq(drivers.userId, req.user.id));
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    if (online) {
+      if (d.verificationStatus !== 'APPROVED') return res.status(403).json({ success: false, message: 'Account not yet approved', code: 'NOT_APPROVED' });
+      if (!d.payoutPinHash || !d.payoutPhone) return res.status(400).json({ success: false, message: 'Set your payout PIN and phone before going online', code: 'PAYOUT_NOT_CONFIGURED' });
+      if (!d.isOnShift) return res.status(400).json({ success: false, message: 'Start a shift before going online', code: 'NOT_ON_SHIFT' });
+    }
+    await db.update(drivers).set({ isOnline: !!online, updatedAt: new Date() }).where(eq(drivers.id, d.id));
     res.json({ success: true, isOnline: !!online });
   } catch (err) { next(err); }
 });
@@ -207,6 +235,147 @@ router.post('/submit-for-review', authenticate, requireRole('DRIVER'), async (re
     if (missing.length) return res.status(400).json({ success: false, message: `Missing documents: ${missing.join(', ')}` });
     await db.update(drivers).set({ verificationStatus: 'PENDING', updatedAt: new Date() }).where(eq(drivers.id, driver.id));
     res.json({ success: true, message: 'Submitted for review' });
+  } catch (err) { next(err); }
+});
+
+// ─── PAYOUT PIN + END-OF-SHIFT CASH-OUT ───
+
+// GET /payout-status — returns whether driver has set a PIN, payout phone, current shift state
+router.get('/payout-status', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    res.json({
+      success: true,
+      pinSet: !!d.payoutPinHash,
+      payoutPhone: d.payoutPhone || null,
+      pendingEarnings: Number(d.pendingEarnings || 0),
+      isOnShift: !!d.isOnShift,
+      shiftStartedAt: d.shiftStartedAt,
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /payout-pin — set or change PIN.
+//   Body: { pin: '1234', currentPin?: '0000', payoutPhone?: '+228...' }
+//   - If no PIN exists yet: just sets it (and payoutPhone if provided).
+//   - If a PIN exists: requires currentPin to verify.
+router.post('/payout-pin', authenticate, requireRole('DRIVER'), endShiftLimiter, async (req, res, next) => {
+  try {
+    const { pin, currentPin, payoutPhone } = req.body;
+    if (!/^\d{4,6}$/.test(String(pin || ''))) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4 to 6 digits' });
+    }
+    const db = getDB();
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+
+    if (d.payoutPinHash) {
+      const ok = currentPin && await bcrypt.compare(String(currentPin), d.payoutPinHash);
+      if (!ok) return res.status(401).json({ success: false, message: 'Current PIN is incorrect' });
+    }
+
+    const update = {
+      payoutPinHash: await bcrypt.hash(String(pin), 10),
+      payoutPinSetAt: new Date(),
+      updatedAt: new Date(),
+    };
+    if (payoutPhone) update.payoutPhone = payoutPhone;
+
+    await db.update(drivers).set(update).where(eq(drivers.id, d.id));
+    res.json({ success: true, message: 'Payout PIN saved' });
+  } catch (err) { next(err); }
+});
+
+// POST /payout-pin/reset-request — driver forgot PIN, send OTP to their phone
+router.post('/payout-pin/reset-request', authenticate, requireRole('DRIVER'), pinResetLimiter, async (req, res, next) => {
+  try {
+    if (!req.user.phone) return res.status(400).json({ success: false, message: 'No phone number on file' });
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const db = getDB();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.insert(otpCodes).values({ userId: req.user.id, code, type: 'payout_pin_reset', expiresAt });
+    await sendSMS(req.user.phone, `Your ArgiDrop PIN reset code is: ${code}. Do not share this code.`);
+    res.json({ success: true, message: 'Reset code sent to your phone' });
+  } catch (err) { next(err); }
+});
+
+// POST /payout-pin/reset — verify OTP, set new PIN
+router.post('/payout-pin/reset', authenticate, requireRole('DRIVER'), endShiftLimiter, async (req, res, next) => {
+  try {
+    const { code, newPin, payoutPhone } = req.body;
+    if (!/^\d{4,6}$/.test(String(newPin || ''))) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4 to 6 digits' });
+    }
+    const db = getDB();
+    const now = new Date();
+    const [otp] = await db.select().from(otpCodes)
+      .where(and(eq(otpCodes.userId, req.user.id), eq(otpCodes.code, String(code || '')), eq(otpCodes.type, 'payout_pin_reset'), gt(otpCodes.expiresAt, now)))
+      .limit(1);
+    if (!otp || otp.usedAt) return res.status(400).json({ success: false, message: 'Invalid or expired code' });
+    await db.update(otpCodes).set({ usedAt: now }).where(eq(otpCodes.id, otp.id));
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    const update = {
+      payoutPinHash: await bcrypt.hash(String(newPin), 10),
+      payoutPinSetAt: now,
+      updatedAt: now,
+    };
+    if (payoutPhone) update.payoutPhone = payoutPhone;
+    await db.update(drivers).set(update).where(eq(drivers.id, d.id));
+    res.json({ success: true, message: 'PIN reset successfully' });
+  } catch (err) { next(err); }
+});
+
+// POST /shift/start — driver presses "Start shift" / goes online
+router.post('/shift/start', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    if (d.verificationStatus !== 'APPROVED') return res.status(403).json({ success: false, message: 'Account not yet approved' });
+    if (!d.payoutPinHash || !d.payoutPhone) return res.status(400).json({ success: false, message: 'Set your payout PIN and phone before starting a shift', code: 'PAYOUT_NOT_CONFIGURED' });
+
+    await db.update(drivers).set({
+      isOnShift: true, isOnline: true, shiftStartedAt: new Date(), shiftEndedAt: null, updatedAt: new Date(),
+    }).where(eq(drivers.id, d.id));
+    res.json({ success: true, message: 'Shift started' });
+  } catch (err) { next(err); }
+});
+
+// POST /shift/end — driver presses "End shift & cash out". Verifies PIN, triggers payout.
+router.post('/shift/end', authenticate, requireRole('DRIVER'), endShiftLimiter, async (req, res, next) => {
+  try {
+    const { pin } = req.body;
+    if (!pin) return res.status(400).json({ success: false, message: 'PIN required' });
+    const db = getDB();
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    if (!d.payoutPinHash) return res.status(400).json({ success: false, message: 'No PIN set' });
+    const valid = await bcrypt.compare(String(pin), d.payoutPinHash);
+    if (!valid) return res.status(401).json({ success: false, message: 'Incorrect PIN' });
+
+    // Get country from associated user
+    const [u] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+    const result = await processEndShiftPayout(d, { trigger: 'END_SHIFT', countryCode: u?.country || 'TG' });
+    if (!result.ok) return res.status(400).json({ success: false, message: result.message || 'Payout failed', code: result.code });
+    res.json({
+      success: true,
+      message: result.message || 'Shift ended. Payout sent.',
+      payout: result.payout,
+    });
+  } catch (err) { next(err); }
+});
+
+// GET /payouts — driver's payout history
+router.get('/payouts', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [d] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!d) return res.status(404).json({ success: false, message: 'Driver not found' });
+    const list = await db.select().from(driverPayouts).where(eq(driverPayouts.driverId, d.id)).orderBy(desc(driverPayouts.createdAt)).limit(50);
+    res.json({ success: true, payouts: list });
   } catch (err) { next(err); }
 });
 

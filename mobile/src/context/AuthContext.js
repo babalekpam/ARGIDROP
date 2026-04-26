@@ -4,6 +4,16 @@ import api from '../utils/api';
 
 const AuthContext = createContext(null);
 
+function attachProfile(userData, profile) {
+  const role = userData?.role;
+  return {
+    ...userData,
+    profile: profile || null,
+    driverProfile: role === 'DRIVER' ? (profile || null) : null,
+    businessProfile: role === 'BUSINESS' ? (profile || null) : null,
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,12 +28,7 @@ export function AuthProvider({ children }) {
       if (token) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const res = await api.get('/auth/me');
-        // Attach driverProfile directly to user for navigator access
-        const userData = {
-          ...res.data.user,
-          driverProfile: res.data.profile || null
-        };
-        setUser(userData);
+        setUser(attachProfile(res.data.user, res.data.profile));
       }
     } catch (e) {
       await SecureStore.deleteItemAsync('argidrop_token');
@@ -39,7 +44,7 @@ export function AuthProvider({ children }) {
     await SecureStore.setItemAsync('argidrop_token', tokens.access);
     await SecureStore.setItemAsync('argidrop_refresh', tokens.refresh);
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
-    const fullUser = { ...userData, driverProfile: profile || null };
+    const fullUser = attachProfile(userData, profile);
     setUser(fullUser);
     return fullUser;
   };
@@ -50,7 +55,7 @@ export function AuthProvider({ children }) {
     await SecureStore.setItemAsync('argidrop_token', tokens.access);
     await SecureStore.setItemAsync('argidrop_refresh', tokens.refresh);
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
-    const fullUser = { ...userData, driverProfile: null };
+    const fullUser = attachProfile(userData, null);
     setUser(fullUser);
     return fullUser;
   };
@@ -58,7 +63,7 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     try {
       const res = await api.get('/auth/me');
-      const fullUser = { ...res.data.user, driverProfile: res.data.profile || null };
+      const fullUser = attachProfile(res.data.user, res.data.profile);
       setUser(fullUser);
       return fullUser;
     } catch (e) {

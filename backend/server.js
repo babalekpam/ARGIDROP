@@ -169,6 +169,8 @@ async function ensureSuperAdmin() {
     console.log('✅ Socket.IO ready');
     await initQueues();
     console.log('✅ Queues ready');
+    const { startNightlyPayouts } = require('./src/jobs/nightly-payouts');
+    startNightlyPayouts();
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ArgiDrop API on port ${PORT}`));
   } catch (err) {
     console.error('❌ Startup failed:', err);

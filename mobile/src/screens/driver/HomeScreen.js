@@ -1,6 +1,6 @@
 // Driver Home — map with nearby jobs, online/offline toggle, current active delivery
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch, FlatList, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch, FlatList, RefreshControl, Alert } from 'react-native';
 import MapView from '../../components/MapView';
 import * as Location from 'expo-location';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,7 @@ export default function HomeScreen({ navigation }) {
   const [availableJobs, setAvailableJobs] = useState([]);
   const [activeJob, setActiveJob] = useState(null);
   const [todayStats, setTodayStats] = useState({ earnings: 0, deliveries: 0 });
+  const [payoutStatus, setPayoutStatus] = useState(null); // {pendingEarnings, pinSet, isOnShift, payoutPhone}
   const [refreshing, setRefreshing] = useState(false);
   const locationSub = useRef(null);
   const mapRef = useRef(null);
@@ -47,6 +48,14 @@ export default function HomeScreen({ navigation }) {
     } catch {}
   };
 
+  const loadPayoutStatus = async () => {
+    try {
+      const res = await api.get('/drivers/payout-status');
+      setPayoutStatus(res.data);
+      if (res.data.isOnShift) setIsOnline(true);
+    } catch {}
+  };
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -56,14 +65,40 @@ export default function HomeScreen({ navigation }) {
     })();
     loadActiveJob();
     loadStats();
+    loadPayoutStatus();
   }, []);
 
   useEffect(() => { loadJobs(); }, [location, loadJobs]);
 
-  // Start/stop location sharing when going online
+  // Going online: must successfully start a shift first (which enforces PIN + payout phone +
+  // approved status server-side). If shift/start fails, we revert the toggle and surface the
+  // server's reason so the driver can fix it (e.g., set up PIN). Going offline does NOT
+  // auto-end the shift — driver must explicitly press "End shift" to cash out.
   useEffect(() => {
+    let cancelled = false;
     if (isOnline) {
       (async () => {
+        if (!payoutStatus?.isOnShift) {
+          try {
+            await api.post('/drivers/shift/start', {});
+            await loadPayoutStatus();
+          } catch (err) {
+            const code = err.response?.data?.code;
+            const msg = err.response?.data?.message || 'Could not start shift';
+            if (cancelled) return;
+            setIsOnline(false);
+            if (code === 'PAYOUT_NOT_CONFIGURED') {
+              Alert.alert('Set up payout first', msg, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Set up PIN', onPress: () => navigation.navigate('PayoutPinSetup') },
+              ]);
+            } else {
+              Alert.alert("Can't go online", msg);
+            }
+            return;
+          }
+        }
+        if (cancelled) return;
         locationSub.current = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, timeInterval: 15000, distanceInterval: 50 },
           loc => {
@@ -78,8 +113,16 @@ export default function HomeScreen({ navigation }) {
       locationSub.current?.remove();
       api.patch('/drivers/online', { online: false }).catch(()=>{});
     }
-    return () => locationSub.current?.remove();
+    return () => { cancelled = true; locationSub.current?.remove(); };
   }, [isOnline]);
+
+  const goToEndShift = () => {
+    if (!payoutStatus?.pinSet) {
+      navigation.navigate('PayoutPinSetup', { onSuccess: () => navigation.navigate('EndShift') });
+    } else {
+      navigation.navigate('EndShift');
+    }
+  };
 
   // Socket job alerts
   useEffect(() => {
@@ -127,20 +170,32 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* Earnings card */}
-      <View style={s.earningsCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.cardLabel}>THIS MONTH</Text>
-          <Text style={s.cardAmount}>{Math.round(todayStats.earnings).toLocaleString()}</Text>
-          <Text style={s.cardCurrency}>XOF earned</Text>
+      {/* Pending earnings card — surfaces cash-out CTA when there's something to collect */}
+      <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Earnings')}>
+        <View style={[s.earningsCard, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && s.earningsCardActive]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.cardLabel, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>READY TO CASH OUT</Text>
+            <Text style={[s.cardAmount, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: C.paper }]}>
+              {Math.round(parseFloat(payoutStatus?.pendingEarnings || 0)).toLocaleString()}
+            </Text>
+            <Text style={[s.cardCurrency, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>XOF pending</Text>
+          </View>
+          {parseFloat(payoutStatus?.pendingEarnings || 0) > 0 ? (
+            <TouchableOpacity style={s.cashoutPill} onPress={goToEndShift}>
+              <Text style={s.cashoutPillText}>End shift</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={s.cardDivider} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.cardLabel}>DELIVERIES</Text>
+                <Text style={s.cardAmount}>{todayStats.deliveries}</Text>
+                <Text style={s.cardCurrency}>all time</Text>
+              </View>
+            </>
+          )}
         </View>
-        <View style={s.cardDivider} />
-        <View style={{ flex: 1 }}>
-          <Text style={s.cardLabel}>DELIVERIES</Text>
-          <Text style={s.cardAmount}>{todayStats.deliveries}</Text>
-          <Text style={s.cardCurrency}>all time</Text>
-        </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Map */}
       {location && (
@@ -219,7 +274,10 @@ const s = StyleSheet.create({
   activeAddr: { fontSize: 14, color: C.paper, fontWeight: '500', marginBottom: 4 },
   activePrice: { fontSize: 18, color: C.paper, fontWeight: '600' },
   activeAction: { fontSize: 13, color: C.paper, fontWeight: '500' },
-  earningsCard: { flexDirection: 'row', margin: 20, marginTop: 4, backgroundColor: C.paper, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 20 },
+  earningsCard: { flexDirection: 'row', alignItems: 'center', margin: 20, marginTop: 4, backgroundColor: C.paper, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 20 },
+  earningsCardActive: { backgroundColor: C.forest, borderColor: C.forest },
+  cashoutPill: { backgroundColor: C.paper, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6 },
+  cashoutPillText: { color: C.forest, fontWeight: '600', fontSize: 13 },
   cardLabel: { fontSize: 10, color: C.muted, letterSpacing: 1.2, fontWeight: '600', marginBottom: 8 },
   cardAmount: { fontSize: 26, fontWeight: '500', color: C.ink, lineHeight: 30 },
   cardCurrency: { fontSize: 11, color: C.subtle, marginTop: 2 },

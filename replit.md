@@ -84,11 +84,26 @@ argidrop/
 
 ## Mobile Driver App (Expo)
 
-- 17 screens covering auth, KYC, driver dashboard, jobs (browse → bid → accept → pickup → delivery → proof → rating), wallet, support.
+- **Unified app** — single Expo binary serves both Driver and Merchant roles. `RootNavigator.js` mounts `DriverTabs` or `MerchantTabs` based on `user.role` from `AuthContext`. New users land on `RoleSelectScreen`.
+- Driver screens: auth, KYC, driver dashboard, jobs (browse → bid → accept → pickup → delivery → proof → rating), earnings, support.
+- Merchant screens: onboarding, pending-review, home (active jobs), history, new delivery (placeholder), more.
 - Maps: `mobile/src/components/MapView.js` — WebView wrapping maplibre-gl JS + MapTiler tiles. No native map module / Google key required (works in Expo Go). Reads key from `EXPO_PUBLIC_MAPTILER_KEY` env or `app.json` extra. Uses a postMessage bridge with a `ready` handshake; pending state is queued and flushed on map load. Updates markers, center, zoom, and the user-location dot dynamically without rebuilding HTML.
 - Assets: placeholder PNGs in `mobile/assets/` (icon, adaptive-icon, splash, notification-icon, favicon) so Expo can boot without missing-file crashes.
 - `mobile/app.json`: removed broken EAS placeholder, added iOS Info.plist permissions for camera/location, exposes `extra.maptilerKey`.
 - Post-delivery flow: ScanQRScreen → ProofOfDelivery → RateDelivery (skips ProofOfDelivery if business doesn't require photo).
+
+## Driver Payouts (M2)
+
+Drivers are NOT paid per delivery. Each completed delivery credits `drivers.pendingEarnings` (an intra-shift balance). Drivers cash out at end-of-shift (PIN-gated) or via a nightly cron sweep at 23:59. We never accumulate driver money long-term.
+
+- **Schema** (drivers table): `payoutPinHash` (bcrypt), `payoutPhone`, `payoutPinSetAt`, `pendingEarnings` (decimal), `isOnShift` / `shiftStartedAt` / `shiftEndedAt`. Plus a new `driver_payouts` table (one row per disbursement attempt) with `status` ∈ {SUCCESS, PENDING, FAILED, PROCESSING} and `trigger` ∈ {END_SHIFT, NIGHTLY_AUTO, ADMIN_MANUAL}.
+- **Disbursement abstraction** (`backend/src/services/payout.js`): `pickDisbursementProvider(country)` routes to a real provider when configured, otherwise to `BANK_TRANSFER` (the MANUAL fallback that creates a `PENDING` payout row + `MANUAL-XXX` reference for the admin to process). Real provider adapters drop into `services/payment-providers/<name>/disburse.js`.
+- **Endpoints** (under `/api/v1/drivers/`, all role-gated, PIN routes rate-limited): `GET /payout-status`, `POST /payout-pin` (set/change), `POST /payout-pin/reset-request` + `POST /payout-pin/reset` (OTP flow), `POST /shift/start`, `POST /shift/end` (PIN required), `GET /payouts` (history).
+- **Going online** requires APPROVED status + PIN+phone configured + on-shift. Both `PATCH /online` and legacy `PATCH /online-status` enforce this.
+- **`processEndShiftPayout`** is race-safe: wraps everything in a transaction with `SELECT ... FOR UPDATE` on the driver row, atomically zeroes `pendingEarnings` before disbursement, re-credits on FAILED.
+- **`releasePayment`** (`services/payment.js`) is idempotent: uses an atomic conditional `UPDATE ... WHERE status='HELD' RETURNING *` to claim the transition; only the winner credits driver earnings + completes the job.
+- **Nightly cron** (`backend/src/jobs/nightly-payouts.js`) scheduled at 23:59 server time via `node-cron`. Sweeps any driver with `pendingEarnings > 0` and a `payoutPhone`, runs `processEndShiftPayout` with trigger `NIGHTLY_AUTO`.
+- **Mobile screens**: `PayoutPinSetupScreen` (4–6 digit PIN + payout phone, with current-PIN check on change and OTP-based reset), `EndShiftScreen` (PIN keypad authorizes cash-out, handles SUCCESS/PENDING/FAILED + zero-balance), `EarningsScreen` (pending balance hero + lifetime stats + payout history), `HomeScreen` (pending earnings widget surfaces "End shift" CTA when balance > 0; online toggle now starts a shift first and reverts on failure with a nudge to set up PIN).
 
 ## Proof of Delivery
 
