@@ -114,6 +114,13 @@ function buildHtml(styleUrl) {
     post({ event: 'ready' });
     while (queue.length) applyMessage(queue.shift());
   });
+  map.on('click', function(e){
+    post({ event: 'click', lat: e.lngLat.lat, lng: e.lngLat.lng });
+  });
+  map.on('moveend', function(){
+    var c = map.getCenter();
+    post({ event: 'moveend', lat: c.lat, lng: c.lng });
+  });
   map.on('error', function(e){
     post({ event: 'error', message: (e && e.error && e.error.message) || 'map error' });
   });
@@ -130,6 +137,8 @@ export default function MapView({
   showUserLocation = false,
   userLocation = null,
   style,
+  onMapPress,
+  onMoveEnd,
 }) {
   const webRef = useRef(null);
   const readyRef = useRef(false);
@@ -184,9 +193,13 @@ export default function MapView({
           webRef.current.postMessage(JSON.stringify(pendingRef.current));
           pendingRef.current = null;
         }
+      } else if (msg?.event === 'click' && typeof onMapPress === 'function') {
+        onMapPress(msg.lat, msg.lng);
+      } else if (msg?.event === 'moveend' && typeof onMoveEnd === 'function') {
+        onMoveEnd(msg.lat, msg.lng);
       }
     } catch {}
-  }, []);
+  }, [onMapPress, onMoveEnd]);
 
   return (
     <View style={[styles.container, style]}>

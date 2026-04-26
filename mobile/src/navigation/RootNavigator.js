@@ -26,6 +26,12 @@ import MerchantOnboardingScreen from '../screens/merchant/MerchantOnboardingScre
 import MerchantKYCScreen from '../screens/merchant/MerchantKYCScreen';
 import MerchantPendingScreen from '../screens/merchant/MerchantPendingScreen';
 import MerchantTabs from './MerchantTabs';
+import MapPickerScreen from '../screens/merchant/MapPickerScreen';
+import PaymentSheetScreen from '../screens/merchant/PaymentSheetScreen';
+import PickupQRScreen from '../screens/merchant/PickupQRScreen';
+import LiveTrackScreen from '../screens/merchant/LiveTrackScreen';
+import RateDriverScreen from '../screens/merchant/RateDriverScreen';
+import MerchantJobDetailScreen from '../screens/merchant/JobDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -94,6 +100,12 @@ export default function RootNavigator() {
           <Stack.Screen name="MerchantKYC" component={MerchantKYCScreen} />
           <Stack.Screen name="MerchantPending" component={MerchantPendingScreen} />
           <Stack.Screen name="MerchantTabs" component={MerchantTabs} />
+          <Stack.Screen name="MapPicker" component={MapPickerScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="PaymentSheet" component={PaymentSheetScreen} />
+          <Stack.Screen name="PickupQR" component={PickupQRScreen} />
+          <Stack.Screen name="LiveTrack" component={LiveTrackScreen} />
+          <Stack.Screen name="RateDriver" component={RateDriverScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="JobDetail" component={MerchantJobDetailScreen} />
         </>
       ) : (
         <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />

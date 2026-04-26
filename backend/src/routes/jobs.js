@@ -252,6 +252,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
       },
       driver: {
         id: drivers.id,
+        userId: drivers.userId,
         rating: drivers.rating,
         vehicleType: drivers.vehicleType,
         vehicleMake: drivers.vehicleMake,
@@ -261,11 +262,14 @@ router.get('/:id', authenticate, async (req, res, next) => {
         isOnline: drivers.isOnline,
         currentLat: drivers.currentLat,
         currentLng: drivers.currentLng,
+        firstName: users.firstName,
+        phone: users.phone,
       }
     })
       .from(jobs)
       .leftJoin(businesses, eq(jobs.businessId, businesses.id))
       .leftJoin(drivers, eq(jobs.driverId, drivers.id))
+      .leftJoin(users, eq(drivers.userId, users.id))
       .where(eq(jobs.id, req.params.id))
       .limit(1);
     if (!result) return res.status(404).json({ success: false, message: 'Job not found' });

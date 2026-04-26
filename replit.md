@@ -105,6 +105,31 @@ Drivers are NOT paid per delivery. Each completed delivery credits `drivers.pend
 - **Nightly cron** (`backend/src/jobs/nightly-payouts.js`) scheduled at 23:59 server time via `node-cron`. Sweeps any driver with `pendingEarnings > 0` and a `payoutPhone`, runs `processEndShiftPayout` with trigger `NIGHTLY_AUTO`.
 - **Mobile screens**: `PayoutPinSetupScreen` (4–6 digit PIN + payout phone, with current-PIN check on change and OTP-based reset), `EndShiftScreen` (PIN keypad authorizes cash-out, handles SUCCESS/PENDING/FAILED + zero-balance), `EarningsScreen` (pending balance hero + lifetime stats + payout history), `HomeScreen` (pending earnings widget surfaces "End shift" CTA when balance > 0; online toggle now starts a shift first and reverts on failure with a nudge to set up PIN).
 
+## Merchant Create-Delivery Flow (M4)
+
+End-to-end mobile flow for a verified merchant to post and pay for a delivery.
+
+- **Mobile screens** (all under `mobile/src/screens/merchant/`):
+  - `NewDeliveryScreen` — pickup, dropoff, recipient, parcel, urgency form. Calls `POST /pricing/quote` on demand and shows the quote card. Reads distance from `breakdown.distanceKm` (the pricing service returns `{total, currency, breakdown:{distanceKm,...}}`).
+  - `MapPickerScreen` (modal) — tap-to-pick on map, long-press / button for "use my location", reverse geocodes via `expo-location`. Returns the chosen point to the previous screen via a callback nav param.
+  - `PaymentSheetScreen` — fetches `GET /payments/providers?country=TG`, lets user pick a momo provider (TMONEY default), `POST /jobs` with `paymentMethod=momo`, opens `payment.paymentUrl` in a WebView modal, polls `GET /jobs/:id` every 3 s until `status` leaves `AWAITING_PAYMENT`. On `POSTED/MATCHED/IN_TRANSIT` resets the navigator stack to `MerchantTabs → PickupQR` (no back-nav into stale form). On `CANCELLED/EXPIRED` shows an alert and goes back.
+  - `PickupQRScreen` — polls `/jobs/:id` and `/scans/jobs/:id/pickup-qr`; the server returns a ready-to-render `qrImage` data URL once a driver matches (returns 400 before that). Listens to `job:matched`, `job:status_change`, `job:picked_up`. Auto-navigates to `LiveTrack` on `IN_TRANSIT`.
+  - `LiveTrackScreen` — MapView with pickup/dropoff/driver markers. Joins the per-job socket room (`join:job`) for real-time `driver:location_update` from the assigned driver, with a 6 s polling fallback. Tap-to-call driver and CTAs for Show pickup QR / Rate driver.
+  - `RateDriverScreen` (modal) — stars + comment, posts to `/jobs/:id/rate` (the backend derives `ratedUserId` from the caller role, so the client sends only `score` and `review`).
+  - Merchant `JobDetailScreen` — role-aware version registered in the BUSINESS stack as `JobDetail`; routes the user to LiveTrack / PickupQR / RateDriver based on status.
+
+- **MapView additions** (`mobile/src/components/MapView.js`): `onMapPress(lat,lng)` and `onMoveEnd({lat,lng,zoom})` props. The WebView posts `{type:'map_click'|'map_moveend',...}` from `map.on('click')` / `map.on('moveend')`.
+
+- **Socket model** (backend confirmed): `job:matched`, `job:picked_up`, `job:delivered` are emitted to the auto-joined `business:${businessId}` room (set up server-side from `socket.userId`, never trusted from the client). `job:status_change` and `driver:location_update` are emitted only to `job:${jobId}`. The mobile app calls `join:job` to opt in; the backend's `isJobParticipant` derives identity from `socket.userId` via DB lookup (not from cached `socket.businessId/driverId`), avoiding a race with the async auto-join block.
+
+- **Authorized `/jobs/:id` driver block** now includes `driver.firstName` and `driver.phone` (joined from `users`) so the LiveTrack tap-to-call CTA can render. Authorization rules unchanged — only the owning business, assigned driver, or admin may read.
+
+- **Payment flow contract**:
+  - `POST /jobs` with `paymentMethod:'momo'` returns `{success, paymentMethod, job:{status:'AWAITING_PAYMENT',...}, payment:{provider, reference, paymentUrl, qrImage, amount, currency, expiresAt}}`.
+  - Job state machine: `DRAFT → AWAITING_PAYMENT → POSTED → MATCHED → IN_TRANSIT → DELIVERED → COMPLETED` (or `CANCELLED/EXPIRED`).
+
+- **Smoke-tested** via `/tmp/e2e_m4.sh`: register → onboarding → quote (1200 XOF for 6.13/1.22 → 6.16/1.25, STANDARD) → providers list (`TMONEY,FLOOZ,MTN_MOMO,ORANGE_MONEY,FLUTTERWAVE`, default `TMONEY`) → create job returns `AWAITING_PAYMENT` + paymentUrl + qrImage → `/jobs/:id` returns detail → pickup-QR before driver match returns 400 → missing-fields on `/jobs` returns 400.
+
 ## Proof of Delivery
 
 - Schema: `jobs.deliveryProofUrl` (text, nullable).

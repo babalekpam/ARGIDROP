@@ -21,11 +21,19 @@ async function isJobParticipant(socket, jobId) {
     }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
     if (!job) return false;
 
+    // Derive identity from socket.userId rather than the cached
+    // socket.driverId/socket.businessId, because the auto-join block runs
+    // asynchronously after 'connection' and the client can emit join:job
+    // before those fields are set, racing the auto-join.
     if (socket.role === 'DRIVER') {
-      return socket.driverId && job.driverId === socket.driverId;
+      const [driver] = await db.select({ id: drivers.id })
+        .from(drivers).where(eq(drivers.userId, socket.userId)).limit(1);
+      return !!(driver && job.driverId === driver.id);
     }
     if (socket.role === 'BUSINESS') {
-      return socket.businessId && job.businessId === socket.businessId;
+      const [biz] = await db.select({ id: businesses.id })
+        .from(businesses).where(eq(businesses.userId, socket.userId)).limit(1);
+      return !!(biz && job.businessId === biz.id);
     }
     return false;
   } catch (err) {
