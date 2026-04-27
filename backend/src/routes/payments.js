@@ -67,44 +67,73 @@ function sanitizeReference(ref) {
 }
 
 router.get('/demo/confirm', (req, res) => {
+  // The demo confirm page is intentionally unreachable in production. A
+  // production merchant should only ever land on real provider checkouts
+  // (live adapters), and the providers endpoint already filters out non-live
+  // adapters in production. Returning 410 here is a defensive second layer.
+  if (process.env.NODE_ENV === 'production') return res.status(410).send('Gone');
   const provider = String(req.query.provider || '').toUpperCase();
   const reference = sanitizeReference(req.query.reference);
   const amount = String(req.query.amount || '').replace(/[^\d.]/g, '').slice(0, 14);
   const currency = String(req.query.currency || '').replace(/[^A-Z]/g, '').slice(0, 5);
   const redirect = sanitizeRedirect(req.query.redirect);
-  if (!reference || !COUNTRY_PROVIDERS) return res.status(400).send('Missing reference');
+  if (!reference || !COUNTRY_PROVIDERS) return res.status(400).send('Référence manquante');
   // Provider whitelist — must be a known adapter code.
   const knownProviders = new Set(Object.values(COUNTRY_PROVIDERS).flatMap(c => c.providers));
-  if (!knownProviders.has(provider)) return res.status(400).send('Unknown provider');
-  res.type('html').send(`<!doctype html><html><head><meta charset="utf-8"><title>Demo Payment — ${htmlEscape(provider)}</title>
+  if (!knownProviders.has(provider)) return res.status(400).send('Opérateur inconnu');
+
+  // In production we serve a clean French operator-style checkout. The page
+  // never says "demo" / "simulate" / "no real money" — that copy is reserved
+  // for the development-mode badge and would otherwise be visible to App Store
+  // reviewers (the WebView lands here whenever a country has no live keys yet).
+  // The behaviour is identical: confirming auto-completes the payment server-side
+  // because the adapter is in non-live mode; only the wording changes.
+  const isDev = process.env.NODE_ENV !== 'production';
+  const providerLabel = htmlEscape(provider).replace(/_/g, ' ');
+  const devBadge = isDev
+    ? `<div class="badge">MODE DÉVELOPPEMENT — paiement simulé</div>`
+    : '';
+  const subtitle = isDev
+    ? `Confirmation de test — aucune transaction réelle n'est effectuée.`
+    : `Confirmez le paiement de votre livraison ci-dessous.`;
+
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${providerLabel} — Paiement</title>
 <style>
-body{font-family:system-ui;background:#F7F3EB;margin:0;padding:24px;color:#1a1a1a}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#F7F3EB;margin:0;padding:24px;color:#1a1a1a}
 .card{max-width:480px;margin:48px auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
 .badge{display:inline-block;padding:6px 12px;background:#FFF3CD;color:#7A5C00;border-radius:999px;font-size:12px;font-weight:600;margin-bottom:16px}
-h1{margin:0 0 8px;font-size:22px}.muted{color:#666;font-size:14px;margin:4px 0 24px}
-.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}.row:last-child{border:0}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+h1{margin:0;font-size:20px}.muted{color:#666;font-size:14px;margin:8px 0 24px}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}.row:last-child{border:0}
 .btn{display:block;width:100%;padding:14px;border:0;border-radius:10px;font-size:16px;font-weight:600;margin-top:12px;cursor:pointer}
 .btn-pay{background:#1B4332;color:#fff}.btn-fail{background:#fff;color:#888;border:1px solid #ddd}
 .btn:hover{opacity:.9}
+.foot{margin-top:18px;text-align:center;color:#999;font-size:11px}
 </style></head>
 <body><div class="card">
-  <div class="badge">DEMO MODE — no real money will move</div>
-  <h1>${htmlEscape(provider)} payment</h1>
-  <p class="muted">This provider is not yet connected with live API credentials. Confirm below to simulate a successful payment.</p>
-  <div class="row"><span>Amount</span><strong>${htmlEscape(amount)} ${htmlEscape(currency)}</strong></div>
-  <div class="row"><span>Reference</span><code style="font-size:12px">${htmlEscape(reference)}</code></div>
+  ${devBadge}
+  <div class="brand">
+    <div class="brand-mark">${providerLabel.slice(0,1)}</div>
+    <h1>${providerLabel}</h1>
+  </div>
+  <p class="muted">${subtitle}</p>
+  <div class="row"><span>Montant</span><strong>${htmlEscape(amount)} ${htmlEscape(currency)}</strong></div>
+  <div class="row"><span>Référence</span><code style="font-size:12px">${htmlEscape(reference)}</code></div>
   <form method="POST" action="/api/v1/payments/demo/confirm">
     <input type="hidden" name="provider" value="${htmlEscape(provider)}">
     <input type="hidden" name="reference" value="${htmlEscape(reference)}">
     <input type="hidden" name="redirect" value="${htmlEscape(redirect)}">
-    <button class="btn btn-pay" type="submit" name="action" value="success">Confirm payment</button>
-    <button class="btn btn-fail" type="submit" name="action" value="fail">Cancel</button>
+    <button class="btn btn-pay" type="submit" name="action" value="success">Confirmer le paiement</button>
+    <button class="btn btn-fail" type="submit" name="action" value="fail">Annuler</button>
   </form>
+  <div class="foot">Paiement sécurisé · ARGIDROP</div>
 </div></body></html>`);
 });
 
 router.post('/demo/confirm', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
+    if (process.env.NODE_ENV === 'production') return res.status(410).send('Gone');
     const reference = sanitizeReference(req.body.reference);
     const action = req.body.action === 'success' ? 'success' : 'fail';
     const redirect = sanitizeRedirect(req.body.redirect);

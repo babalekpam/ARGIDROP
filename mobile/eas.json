@@ -50,7 +50,10 @@
       "android": {
         "track": "internal"
       },
-      "ios": {}
+      "ios": {
+        "appleTeamId": "Z82KB5AR7N",
+        "ascAppId": "REPLACE_WITH_NUMERIC_APPLE_ID_FROM_ASC"
+      }
     }
   }
 }

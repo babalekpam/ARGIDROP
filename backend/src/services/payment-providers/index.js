@@ -46,9 +46,16 @@ function listAllAdapters() {
 function listProvidersForCountryDetailed(country) {
   _instantiate();
   const cfg = getCountryConfig(country);
+  // In production we hide adapters that are not connected to real provider
+  // credentials. This prevents the in-app payment WebView from ever landing
+  // on the demo-confirm fallback page in front of a real merchant or an
+  // App Store reviewer. In dev/staging every adapter is returned so the team
+  // can exercise the full flow without live keys.
+  const hideDemoProviders = process.env.NODE_ENV === 'production';
   return cfg.providers
     .map(code => _instances[code])
     .filter(Boolean)
+    .filter(a => !hideDemoProviders || a.isLive())
     .map(a => ({
       code: a.code,
       displayName: a.displayName,

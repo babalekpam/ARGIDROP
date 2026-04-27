@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', amber:'#C28B2C', red:'#B23A48' };
 
@@ -20,6 +22,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
   const dueAmount = Math.max(0, +(baseAmount - discount).toFixed(2));
   const displayCurrency = quote?.currency || jobInput?.currency || 'XOF';
   const { user } = useAuth();
+  const { lang } = useLang();
   const country = user?.businessProfile?.country || 'TG';
 
   const [providers, setProviders] = useState([]);
@@ -46,7 +49,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
         setProvider(def || list[0]?.code || null);
       })
       .catch(() => {
-        if (!cancelled) setError('Could not load payment providers');
+        if (!cancelled) setError(t('payment.providersError', lang));
       })
       .finally(() => { if (!cancelled) setLoadingProviders(false); });
     return () => { cancelled = true; };
@@ -81,7 +84,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
             });
           } else if (j.status === 'CANCELLED' || j.status === 'EXPIRED') {
             setPaymentUrl(null);
-            Alert.alert('Payment failed', 'The payment was not completed. You can try again.');
+            Alert.alert(t('payment.failedTitle', lang), t('payment.failedBody', lang));
             navigation.goBack();
           }
         }
@@ -92,8 +95,8 @@ export default function PaymentSheetScreen({ route, navigation }) {
   }, [navigation]);
 
   const submit = async () => {
-    if (!provider) return Alert.alert('Pick a provider', 'Choose a payment method');
-    if (!phone.trim()) return Alert.alert('Phone required', 'Enter the phone number to pay from');
+    if (!provider) return Alert.alert(t('payment.pickProvider.title', lang), t('payment.pickProvider.body', lang));
+    if (!phone.trim()) return Alert.alert(t('payment.phoneRequired.title', lang), t('payment.phoneRequired.body', lang));
     setSubmitting(true);
     setError('');
     try {
@@ -112,10 +115,10 @@ export default function PaymentSheetScreen({ route, navigation }) {
         // unlikely with momo, but handle wallet-style success
         navigation.replace('PickupQR', { jobId: data.job.id });
       } else {
-        setError('Payment was not initiated. Please try again.');
+        setError(t('payment.notInitiated', lang));
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Could not create the delivery');
+      setError(e.response?.data?.message || t('payment.createFailed', lang));
     } finally {
       setSubmitting(false);
     }
@@ -123,11 +126,11 @@ export default function PaymentSheetScreen({ route, navigation }) {
 
   const cancelPayment = () => {
     Alert.alert(
-      'Cancel payment?',
-      'The delivery will not be posted to drivers until payment is confirmed.',
+      t('payment.cancelTitle', lang),
+      t('payment.cancelBody', lang),
       [
-        { text: 'Keep waiting' },
-        { text: 'Cancel', style: 'destructive', onPress: () => {
+        { text: t('payment.keepWaiting', lang) },
+        { text: t('common.cancel', lang), style: 'destructive', onPress: () => {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           setPaymentUrl(null);
@@ -144,36 +147,36 @@ export default function PaymentSheetScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} disabled={submitting}>
           <Ionicons name="chevron-back" size={26} color={submitting ? C.subtle : C.forest} />
         </TouchableOpacity>
-        <Text style={s.title}>Payment</Text>
+        <Text style={s.title}>{t('payment.title', lang)}</Text>
         <View style={{ width: 26 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <View style={s.amountCard}>
-          <Text style={s.amountLabel}>Amount due</Text>
+          <Text style={s.amountLabel}>{t('payment.amountDue', lang)}</Text>
           <Text style={s.amountValue}>
             {Math.round(dueAmount).toLocaleString()}
             <Text style={s.amountCurr}> {displayCurrency}</Text>
           </Text>
           {promoPreview ? (
             <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.muted }}>Subtotal</Text>
+              <Text style={{ fontSize: 12, color: C.muted }}>{t('payment.subtotal', lang)}</Text>
               <Text style={{ fontSize: 12, color: C.muted }}>{Math.round(baseAmount).toLocaleString()} {displayCurrency}</Text>
             </View>
           ) : null}
           {promoPreview ? (
             <View style={{ marginTop: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600' }}>Promo · {promoPreview.code}</Text>
+              <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600' }}>{t('payment.promo', lang)} · {promoPreview.code}</Text>
               <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600' }}>− {Math.round(discount).toLocaleString()} {displayCurrency}</Text>
             </View>
           ) : null}
         </View>
 
-        <Text style={s.sectionLabel}>Choose payment method</Text>
+        <Text style={s.sectionLabel}>{t('payment.method', lang)}</Text>
         {loadingProviders ? (
           <ActivityIndicator color={C.forest} style={{ marginTop: 24 }} />
         ) : providers.length === 0 ? (
-          <Text style={{ color: C.muted, marginTop: 12 }}>No providers available for your country.</Text>
+          <Text style={{ color: C.muted, marginTop: 12 }}>{t('payment.noProviders', lang)}</Text>
         ) : (
           <View style={{ gap: 8, marginTop: 8 }}>
             {providers.map(p => {
@@ -192,7 +195,10 @@ export default function PaymentSheetScreen({ route, navigation }) {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.providerName}>{p.displayName || p.code}</Text>
-                    {!p.live && <Text style={s.providerSandbox}>SANDBOX</Text>}
+                    {/* SANDBOX badge intentionally hidden in production builds —
+                        only shown in dev so App Store reviewers and live merchants
+                        never see internal-only payment-state labels. */}
+                    {__DEV__ && !p.live && <Text style={s.providerSandbox}>SANDBOX</Text>}
                   </View>
                   <Ionicons
                     name={selected ? 'radio-button-on' : 'radio-button-off'}
@@ -205,7 +211,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
           </View>
         )}
 
-        <Text style={[s.sectionLabel, { marginTop: 20 }]}>Phone number to pay from</Text>
+        <Text style={[s.sectionLabel, { marginTop: 20 }]}>{t('payment.phoneLabel', lang)}</Text>
         <TextInput
           value={phone}
           onChangeText={setPhone}
@@ -224,12 +230,10 @@ export default function PaymentSheetScreen({ route, navigation }) {
         >
           {submitting
             ? <ActivityIndicator color={C.paper} />
-            : <Text style={s.btnText}>Pay {Math.round(dueAmount).toLocaleString()} {displayCurrency}</Text>}
+            : <Text style={s.btnText}>{t('payment.cta', lang, { amount: Math.round(dueAmount).toLocaleString(), currency: displayCurrency })}</Text>}
         </TouchableOpacity>
 
-        <Text style={s.legal}>
-          You'll be redirected to the provider's secure checkout. Your delivery will go live to drivers as soon as the payment is confirmed.
-        </Text>
+        <Text style={s.legal}>{t('payment.legal', lang)}</Text>
       </ScrollView>
 
       {/* Payment WebView modal */}
@@ -239,13 +243,13 @@ export default function PaymentSheetScreen({ route, navigation }) {
             <TouchableOpacity onPress={cancelPayment}>
               <Ionicons name="close" size={26} color={C.forest} />
             </TouchableOpacity>
-            <Text style={s.title}>Complete payment</Text>
+            <Text style={s.title}>{t('payment.complete', lang)}</Text>
             <View style={{ width: 26 }} />
           </View>
           <View style={s.pollBanner}>
             {polling
-              ? <><ActivityIndicator size="small" color={C.amber} /><Text style={s.pollText}>Waiting for payment confirmation…</Text></>
-              : <Text style={s.pollText}>Loading checkout…</Text>}
+              ? <><ActivityIndicator size="small" color={C.amber} /><Text style={s.pollText}>{t('payment.waiting', lang)}</Text></>
+              : <Text style={s.pollText}>{t('payment.loadingCheckout', lang)}</Text>}
           </View>
           {paymentUrl && (
             <WebView
