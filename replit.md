@@ -91,6 +91,7 @@ argidrop/
 - Assets: placeholder PNGs in `mobile/assets/` (icon, adaptive-icon, splash, notification-icon, favicon) so Expo can boot without missing-file crashes.
 - `mobile/app.json`: removed broken EAS placeholder, added iOS Info.plist permissions for camera/location, exposes `extra.maptilerKey`.
 - Post-delivery flow: ScanQRScreen → ProofOfDelivery → RateDelivery (skips ProofOfDelivery if business doesn't require photo).
+- **Workspace web preview** (`Mobile Web Preview` workflow on port 8080): runs `expo start --web`. `mobile/metro.config.js` aliases native-only modules (`expo-notifications`, `expo-secure-store`, `react-native-webview`, `expo-camera`, `expo-barcode-scanner`) to no-op web stubs in `mobile/web-stubs/` so the app boots in a browser without runtime crashes. SecureStore stub falls back to `localStorage`. Native-only screens (camera, QR scanner, map) render placeholder cards on web — fine for previewing UI/auth flows, not for end-to-end native testing. `mobile/.env` points the web bundle at the production API at `https://argidrop.com/api/v1` and the production socket.
 
 ## Driver Payouts (M2)
 
