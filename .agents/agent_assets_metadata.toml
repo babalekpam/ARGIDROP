@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "xteEWwzaWLJRUVga1jQUX"
+uri = "file://web/public/og-image.png"
+type = "image"
+title = "generated_image"

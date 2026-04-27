@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /marketplace
+
+# Tracking pages are user-specific and contain private data
+Disallow: /track/
+Disallow: /r/
+Disallow: /track-delivery/
+Disallow: /pay/
+Disallow: /pickup-qr/
+
+# Authenticated areas
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /driver
+Disallow: /onboarding
+
+# API surface — never expose to crawlers
+Disallow: /api/
+
+Sitemap: https://argidrop.com/sitemap.xml
