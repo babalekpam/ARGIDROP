@@ -17,6 +17,27 @@ The project aims to revolutionize the logistics and delivery landscape in West A
 
 No specific user preferences were provided in the original `replit.md` file.
 
+## Internationalization (i18n)
+
+ArgiDrop is a bilingual product targeting West African francophone markets (Togo / CEDEAO). **French is the default language across web and mobile.** English is fully supported as a secondary language.
+
+**1. Web (`web/`)** — Built on `react-i18next` + `i18next-browser-languagedetector`.
+    *   Init: `web/src/i18n/index.js` — `fallbackLng: 'fr'`, supported `['fr','en']`, detection order `['localStorage']` only (so French is the true default unless the user explicitly chose English).
+    *   Persistence key: `argidrop_lang` in localStorage.
+    *   Locales: `web/src/i18n/locales/{fr,en}.js` — flat namespaces: `nav`, `lang`, `landing`, `auth.login`, `auth.register`, `business.{nav,sidebar,onboarding}` (incl. KYC docs, vehicle types, country names), `legal.{privacy,terms}` with full sections arrays, `common`.
+    *   Toggle: `<LanguageSwitcher />` (FR↔EN compact pill, dark variant for dark backgrounds). Calls `i18n.changeLanguage(next)`.
+    *   Translated pages: Landing, auth/Login, auth/Register, Privacy, Terms, business/Onboarding, business/Layout. Deeper business pages (Dashboard, Wallet, Invoices, Marketplace, etc.) remain English-only by design — internal-tool surface.
+
+**2. Mobile (`mobile/`)** — Custom lightweight dictionary (no i18next), see `mobile/src/utils/i18n.js`.
+    *   API: `t(key, lang, vars?)` — flat keys with `{fr, en}` shape, supports `{name}`-style interpolation.
+    *   Helper: `getLang(user)` — reads `user.language` post-login.
+    *   Pre-login language: `mobile/src/context/LanguageContext.js` provides `useLang()` returning `{lang, setLang}`. Persists to `expo-secure-store` key `argidrop_lang`. Defaults to `'fr'`. Wrapped at App root above `AuthProvider`.
+    *   Toggle: `mobile/src/components/LanguageToggle.js` — compact FR↔EN pill, dark variant. Placed on `RoleSelectScreen`, `LoginScreen`, `RegisterScreen`.
+    *   Translated screens: `auth/{RoleSelect,Login,Register}Screen`, `driver/HomeScreen`, `merchant/{Home,NewDelivery}Screen`, plus pre-existing `auth/DriverKYCScreen` and `driver/DocumentsScreen` (KYC, payout, selfie, onboarding flows).
+    *   Namespaces: `common`, `lang`, `role`, `login`, `register`, `driverHome`, `merchantHome`, `status.*` (job statuses), `newDelivery`, `pkg.*` (package types), `urgency.*`, `error.*`, `kyc.*`, `onboarding.*`, `payout.*`, `doc.*`, `selfie.*`.
+
+**3. Translation register** — French copy uses professional francophone terms appropriate for Togo/CEDEAO (e.g. CNI, RCCM, CEDEAO, FCFA/XOF, Mobile Money). Avoid Quebec or Hexagonal idioms. Match existing tone established in mobile KYC dictionary.
+
 ## System Architecture
 
 ArgiDrop employs a monorepo structure with distinct components for its backend, web frontend, and mobile application.

@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SocketProvider } from './src/context/SocketContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
@@ -107,15 +108,17 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <AuthProvider>
-            <SocketProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <SocketProvider>
               <NavigationContainer ref={navigationRef} theme={ArgiDropTheme} linking={Platform.OS === 'web' ? undefined : linking}>
                 <StatusBar style="dark" />
                 <NotificationRouter />
                 <RootNavigator />
               </NavigationContainer>
-            </SocketProvider>
-          </AuthProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

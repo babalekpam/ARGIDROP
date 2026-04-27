@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
+import LanguageToggle from '../../components/LanguageToggle';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9' };
 
 export default function RegisterScreen({ navigation, route }) {
   const { register } = useAuth();
+  const { lang } = useLang();
   const role = route?.params?.role || 'DRIVER';
   const isMerchant = role === 'BUSINESS';
 
@@ -19,9 +23,9 @@ export default function RegisterScreen({ navigation, route }) {
   const set = k => v => setForm(p => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!form.firstName || !form.email || !form.password) return Alert.alert('Required fields', 'First name, email, and password are required');
-    if (isMerchant && !form.companyName) return Alert.alert('Required fields', 'Business name is required');
-    if (form.password.length < 8) return Alert.alert('Password too short', 'Password must be at least 8 characters');
+    if (!form.firstName || !form.email || !form.password) return Alert.alert(t('register.requiredFields', lang), t('register.requiredMsg', lang));
+    if (isMerchant && !form.companyName) return Alert.alert(t('register.requiredFields', lang), t('register.businessRequired', lang));
+    if (form.password.length < 8) return Alert.alert(t('register.passwordTooShort', lang), t('register.passwordTooShortMsg', lang));
     setLoading(true);
     try {
       const payload = {
@@ -34,26 +38,29 @@ export default function RegisterScreen({ navigation, route }) {
       if (refCode) payload.referralCode = refCode.toUpperCase();
       await register(payload);
     } catch (err) {
-      Alert.alert('Registration failed', err.response?.data?.message || 'Please try again');
+      Alert.alert(t('register.failed', lang), err.response?.data?.message || t('register.tryAgain', lang));
     } finally { setLoading(false); }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.cream }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginBottom: 8 }}>
-          <Ionicons name="chevron-back" size={26} color={C.forest} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={26} color={C.forest} />
+          </TouchableOpacity>
+          <LanguageToggle />
+        </View>
         <View style={{ marginBottom: 24 }}>
           <Text style={s.brand}>ArgiDrop</Text>
-          <Text style={s.brandSub}>{isMerchant ? 'Merchant registration' : 'Driver registration'}</Text>
-          <Text style={s.title}>Create account</Text>
-          <Text style={s.subtitle}>{isMerchant ? 'Join thousands of merchants moving goods across West Africa' : 'Join the ArgiDrop driver network'}</Text>
+          <Text style={s.brandSub}>{isMerchant ? t('register.merchantSub', lang) : t('register.driverSub', lang)}</Text>
+          <Text style={s.title}>{t('register.title', lang)}</Text>
+          <Text style={s.subtitle}>{isMerchant ? t('register.merchantSubtitle', lang) : t('register.driverSubtitle', lang)}</Text>
         </View>
         <View style={s.form}>
           {isMerchant && (
             <>
-              <Text style={s.label}>Business name *</Text>
+              <Text style={s.label}>{t('register.businessName', lang)}</Text>
               <TextInput style={s.input} value={form.companyName} onChangeText={set('companyName')} autoCapitalize="words" placeholderTextColor={C.subtle} placeholder="Boutique Akossiwa" />
               <View style={{ height: 14 }} />
             </>
@@ -61,31 +68,30 @@ export default function RegisterScreen({ navigation, route }) {
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={s.label}>First name *</Text>
+              <Text style={s.label}>{t('register.firstName', lang)}</Text>
               <TextInput style={s.input} value={form.firstName} onChangeText={set('firstName')} autoCapitalize="words" placeholderTextColor={C.subtle} placeholder="Kodjo" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.label}>Last name</Text>
+              <Text style={s.label}>{t('register.lastName', lang)}</Text>
               <TextInput style={s.input} value={form.lastName} onChangeText={set('lastName')} autoCapitalize="words" placeholderTextColor={C.subtle} placeholder="Amenuvor" />
             </View>
           </View>
-          <Text style={[s.label, { marginTop: 14 }]}>Email address *</Text>
+          <Text style={[s.label, { marginTop: 14 }]}>{t('register.email', lang)}</Text>
           <TextInput style={s.input} value={form.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={C.subtle} placeholder="your@email.com" />
-          <Text style={[s.label, { marginTop: 14 }]}>Phone number</Text>
+          <Text style={[s.label, { marginTop: 14 }]}>{t('register.phone', lang)}</Text>
           <TextInput style={s.input} value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholderTextColor={C.subtle} placeholder="+228 90 00 00 00" />
-          <Text style={[s.label, { marginTop: 14 }]}>Password *</Text>
-          <TextInput style={s.input} value={form.password} onChangeText={set('password')} secureTextEntry placeholderTextColor={C.subtle} placeholder="At least 8 characters" />
+          <Text style={[s.label, { marginTop: 14 }]}>{t('register.password', lang)}</Text>
+          <TextInput style={s.input} value={form.password} onChangeText={set('password')} secureTextEntry placeholderTextColor={C.subtle} placeholder={t('register.passwordPlaceholder', lang)} />
 
-          {/* Optional referral code — collapsed by default to keep the form short */}
           <TouchableOpacity onPress={() => setShowReferral(v => !v)} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name={showReferral ? 'chevron-up' : 'chevron-down'} size={16} color={C.bronze} />
             <Text style={{ marginLeft: 6, color: C.bronze, fontSize: 13, fontWeight: '600' }}>
-              {showReferral ? 'Hide referral code' : 'Have a referral code?'}
+              {showReferral ? t('register.hideReferral', lang) : t('register.haveReferral', lang)}
             </Text>
           </TouchableOpacity>
           {showReferral && (
             <>
-              <Text style={[s.label, { marginTop: 10 }]}>Referral code</Text>
+              <Text style={[s.label, { marginTop: 10 }]}>{t('register.referral', lang)}</Text>
               <TextInput
                 style={s.input}
                 value={form.referralCode}
@@ -99,10 +105,10 @@ export default function RegisterScreen({ navigation, route }) {
           )}
 
           <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
-            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{isMerchant ? 'Create merchant account' : 'Create driver account'}</Text>}
+            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{isMerchant ? t('register.submitMerchant', lang) : t('register.submitDriver', lang)}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginTop: 14, alignItems: 'center' }}>
-            <Text style={s.link}>Already have an account? <Text style={{ color: C.forest, fontWeight: '600' }}>Sign in</Text></Text>
+            <Text style={s.link}>{t('register.alreadyAccount', lang)} <Text style={{ color: C.forest, fontWeight: '600' }}>{t('register.signin', lang)}</Text></Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

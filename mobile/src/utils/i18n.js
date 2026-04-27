@@ -20,6 +20,8 @@ const strings = {
   'common.pending': { fr: 'En attente', en: 'Under review' },
   'common.replace': { fr: 'Remplacer', en: 'Replace file' },
   'common.choose': { fr: 'Choisir le fichier', en: 'Choose file' },
+  'common.remove': { fr: 'Supprimer', en: 'Remove' },
+  'common.apply': { fr: 'Appliquer', en: 'Apply' },
 
   // ─── ONBOARDING STEPS ───
   'onboarding.step': { fr: 'Étape', en: 'Step' },
@@ -109,23 +111,190 @@ const strings = {
   'error.missing_docs': { fr: 'Tous les documents sont obligatoires', en: 'All documents are required' },
   'error.vehicle_type': { fr: 'Sélectionnez votre type de véhicule', en: 'Select your vehicle type' },
   'error.payout': { fr: 'L\'opérateur et le numéro de paiement sont requis', en: 'Payout provider and account are required' },
+
+  // ─── ROLE SELECT ───
+  'role.welcome': { fr: 'Bienvenue', en: 'Welcome' },
+  'role.howUse': { fr: 'Comment utiliserez-vous ArgiDrop aujourd\'hui ?', en: 'How will you use ArgiDrop today?' },
+  'role.merchant.title': { fr: 'Je suis Marchand', en: 'I\'m a Merchant' },
+  'role.merchant.desc': { fr: 'Envoyez des colis, gérez les livraisons de votre boutique, suivez les commandes en direct.', en: 'Send packages, manage your shop\'s deliveries, track orders live.' },
+  'role.driver.title': { fr: 'Je suis Livreur', en: 'I\'m a Driver' },
+  'role.driver.desc': { fr: 'Gagnez de l\'argent à votre rythme. Soyez payé chaque jour sur mobile money.', en: 'Earn money on your schedule. Get paid daily to mobile money.' },
+  'role.alreadyAccount': { fr: 'Vous avez déjà un compte ?', en: 'Already have an account?' },
+  'role.signin': { fr: 'Se connecter', en: 'Sign in' },
+  'role.brandSub': { fr: 'Lomé · Afrique de l\'Ouest', en: 'Lomé · West Africa' },
+
+  // ─── LOGIN ───
+  'login.title': { fr: 'Se connecter', en: 'Sign in' },
+  'login.subtitle': { fr: 'Bon retour', en: 'Welcome back' },
+  'login.email': { fr: 'Adresse e-mail', en: 'Email address' },
+  'login.password': { fr: 'Mot de passe', en: 'Password' },
+  'login.submit': { fr: 'Se connecter', en: 'Sign in' },
+  'login.newDriver': { fr: 'Nouveau ?', en: 'New here?' },
+  'login.registerHere': { fr: 'Inscrivez-vous ici', en: 'Register here' },
+  'login.requiredFields': { fr: 'Champs requis', en: 'Required fields' },
+  'login.requiredFieldsMsg': { fr: 'Veuillez saisir votre e-mail et votre mot de passe', en: 'Please enter your email and password' },
+  'login.failed': { fr: 'Échec de la connexion', en: 'Login failed' },
+  'login.invalidCreds': { fr: 'Identifiants invalides', en: 'Invalid credentials' },
+
+  // ─── REGISTER ───
+  'register.merchantSub': { fr: 'Inscription marchand', en: 'Merchant registration' },
+  'register.driverSub': { fr: 'Inscription livreur', en: 'Driver registration' },
+  'register.title': { fr: 'Créer un compte', en: 'Create account' },
+  'register.merchantSubtitle': { fr: 'Rejoignez les milliers de marchands qui livrent en Afrique de l\'Ouest', en: 'Join thousands of merchants moving goods across West Africa' },
+  'register.driverSubtitle': { fr: 'Rejoignez le réseau de livreurs ArgiDrop', en: 'Join the ArgiDrop driver network' },
+  'register.businessName': { fr: 'Nom de l\'entreprise *', en: 'Business name *' },
+  'register.firstName': { fr: 'Prénom *', en: 'First name *' },
+  'register.lastName': { fr: 'Nom', en: 'Last name' },
+  'register.email': { fr: 'Adresse e-mail *', en: 'Email address *' },
+  'register.phone': { fr: 'Numéro de téléphone', en: 'Phone number' },
+  'register.password': { fr: 'Mot de passe *', en: 'Password *' },
+  'register.passwordPlaceholder': { fr: 'Au moins 8 caractères', en: 'At least 8 characters' },
+  'register.hideReferral': { fr: 'Masquer le code de parrainage', en: 'Hide referral code' },
+  'register.haveReferral': { fr: 'Vous avez un code de parrainage ?', en: 'Have a referral code?' },
+  'register.referral': { fr: 'Code de parrainage', en: 'Referral code' },
+  'register.submitMerchant': { fr: 'Créer le compte marchand', en: 'Create merchant account' },
+  'register.submitDriver': { fr: 'Créer le compte livreur', en: 'Create driver account' },
+  'register.alreadyAccount': { fr: 'Vous avez déjà un compte ?', en: 'Already have an account?' },
+  'register.signin': { fr: 'Se connecter', en: 'Sign in' },
+  'register.requiredFields': { fr: 'Champs requis', en: 'Required fields' },
+  'register.requiredMsg': { fr: 'Le prénom, l\'e-mail et le mot de passe sont requis', en: 'First name, email, and password are required' },
+  'register.businessRequired': { fr: 'Le nom de l\'entreprise est requis', en: 'Business name is required' },
+  'register.passwordTooShort': { fr: 'Mot de passe trop court', en: 'Password too short' },
+  'register.passwordTooShortMsg': { fr: 'Le mot de passe doit comporter au moins 8 caractères', en: 'Password must be at least 8 characters' },
+  'register.failed': { fr: 'Échec de l\'inscription', en: 'Registration failed' },
+  'register.tryAgain': { fr: 'Veuillez réessayer', en: 'Please try again' },
+
+  // ─── DRIVER HOME ───
+  'driverHome.hello': { fr: 'Bonjour, {name}', en: 'Hello, {name}' },
+  'driverHome.online': { fr: 'En ligne', en: 'Online' },
+  'driverHome.offline': { fr: 'Hors ligne', en: 'Offline' },
+  'driverHome.activeLabel': { fr: 'LIVRAISON EN COURS', en: 'ACTIVE DELIVERY' },
+  'driverHome.continue': { fr: 'Continuer →', en: 'Continue →' },
+  'driverHome.readyCashout': { fr: 'PRÊT À ENCAISSER', en: 'READY TO CASH OUT' },
+  'driverHome.xofPending': { fr: 'XOF en attente', en: 'XOF pending' },
+  'driverHome.endShift': { fr: 'Fin de service', en: 'End shift' },
+  'driverHome.deliveriesLabel': { fr: 'LIVRAISONS', en: 'DELIVERIES' },
+  'driverHome.allTime': { fr: 'depuis le début', en: 'all time' },
+  'driverHome.availableNear': { fr: 'Disponibles près de vous', en: 'Available near you' },
+  'driverHome.jobOne': { fr: 'job', en: 'job' },
+  'driverHome.jobMany': { fr: 'jobs', en: 'jobs' },
+  'driverHome.goOnline': { fr: 'Passez en ligne pour recevoir des jobs', en: 'Go online to receive jobs' },
+  'driverHome.goOnlineDesc': { fr: 'Activez l\'interrupteur ci-dessus pour voir les livraisons disponibles.', en: 'Turn on the switch above to see available deliveries.' },
+  'driverHome.noJobs': { fr: 'Aucun job à proximité pour le moment', en: 'No jobs nearby right now' },
+  'driverHome.noJobsDesc': { fr: 'Nous vous notifierons dès qu\'un job apparaît.', en: 'We\'ll notify you the moment one appears.' },
+  'driverHome.setupPayout': { fr: 'Configurez d\'abord le paiement', en: 'Set up payout first' },
+  'driverHome.setupPin': { fr: 'Configurer le PIN', en: 'Set up PIN' },
+  'driverHome.cantOnline': { fr: 'Impossible de passer en ligne', en: 'Can\'t go online' },
+  'driverHome.couldNotStart': { fr: 'Impossible de démarrer le service', en: 'Could not start shift' },
+
+  // ─── MERCHANT HOME ───
+  'merchantHome.hello': { fr: 'Bonjour, {name}', en: 'Hello, {name}' },
+  'merchantHome.thereName': { fr: 'cher partenaire', en: 'there' },
+  'merchantHome.yourBusiness': { fr: 'Votre entreprise', en: 'Your business' },
+  'merchantHome.send': { fr: 'Envoyer une livraison', en: 'Send a delivery' },
+  'merchantHome.sendSub': { fr: 'Trouvez un livreur en quelques minutes', en: 'Get a driver in minutes' },
+  'merchantHome.activeDeliveries': { fr: 'Livraisons en cours', en: 'Active deliveries' },
+  'merchantHome.noActive': { fr: 'Aucune livraison en cours', en: 'No active deliveries' },
+  'merchantHome.noActiveSub': { fr: 'Touchez « Envoyer une livraison » pour commencer.', en: 'Tap "Send a delivery" above to get started.' },
+  'merchantHome.pickup': { fr: 'Ramassage', en: 'Pickup' },
+  'merchantHome.dropoff': { fr: 'Livraison', en: 'Drop-off' },
+
+  // ─── JOB STATUS ───
+  'status.AWAITING_PAYMENT': { fr: 'En attente de paiement', en: 'Awaiting payment' },
+  'status.POSTED': { fr: 'Recherche d\'un livreur', en: 'Looking for driver' },
+  'status.MATCHED': { fr: 'Livreur assigné', en: 'Driver assigned' },
+  'status.IN_TRANSIT': { fr: 'En route', en: 'On the way' },
+  'status.DELIVERED': { fr: 'Livré', en: 'Delivered' },
+  'status.COMPLETED': { fr: 'Terminé', en: 'Completed' },
+  'status.CANCELLED': { fr: 'Annulé', en: 'Cancelled' },
+  'status.DISPUTED': { fr: 'En litige', en: 'Disputed' },
+
+  // ─── NEW DELIVERY ───
+  'newDelivery.title': { fr: 'Nouvelle livraison', en: 'New delivery' },
+  'newDelivery.pickup': { fr: 'Ramassage', en: 'Pickup' },
+  'newDelivery.dropoff': { fr: 'Livraison', en: 'Drop-off' },
+  'newDelivery.package': { fr: 'Colis', en: 'Package' },
+  'newDelivery.urgency': { fr: 'Urgence', en: 'Urgency' },
+  'newDelivery.choosePickup': { fr: 'Choisir le point de ramassage sur la carte', en: 'Choose pickup on map' },
+  'newDelivery.chooseDropoff': { fr: 'Choisir le point de livraison sur la carte', en: 'Choose drop-off on map' },
+  'newDelivery.contactName': { fr: 'Nom du contact (optionnel)', en: 'Contact name (optional)' },
+  'newDelivery.contactNamePh': { fr: 'ex. Yawa', en: 'e.g. Yawa' },
+  'newDelivery.contactPhone': { fr: 'Téléphone du contact (optionnel)', en: 'Contact phone (optional)' },
+  'newDelivery.pickupNotes': { fr: 'Notes pour le ramassage (optionnel)', en: 'Pickup notes (optional)' },
+  'newDelivery.pickupNotesPh': { fr: 'Code portail, étage, instructions', en: 'Gate code, floor, instructions' },
+  'newDelivery.recipientName': { fr: 'Nom du destinataire *', en: 'Recipient name *' },
+  'newDelivery.recipientNamePh': { fr: 'Qui reçoit le colis ?', en: 'Who receives the package?' },
+  'newDelivery.recipientPhone': { fr: 'Téléphone du destinataire *', en: 'Recipient phone *' },
+  'newDelivery.dropNotes': { fr: 'Notes pour la livraison (optionnel)', en: 'Drop-off notes (optional)' },
+  'newDelivery.dropNotesPh': { fr: 'Numéro d\'appartement, point de repère…', en: 'Apartment number, landmark…' },
+  'newDelivery.type': { fr: 'Type', en: 'Type' },
+  'newDelivery.weight': { fr: 'Poids (kg, optionnel)', en: 'Weight (kg, optional)' },
+  'newDelivery.weightPh': { fr: 'ex. 2,5', en: 'e.g. 2.5' },
+  'newDelivery.fragile': { fr: 'Colis fragile', en: 'Fragile package' },
+  'newDelivery.description': { fr: 'Description (optionnel)', en: 'Description (optional)' },
+  'newDelivery.descriptionPh': { fr: 'Que contient le colis ?', en: 'What\'s inside?' },
+  'newDelivery.estimated': { fr: 'Prix estimé', en: 'Estimated price' },
+  'newDelivery.priceLabel': { fr: 'Prix', en: 'Price' },
+  'newDelivery.quoteOnce': { fr: 'Obtenez un devis une fois les deux adresses définies', en: 'Get a quote once both locations are set' },
+  'newDelivery.couldNotQuote': { fr: 'Impossible d\'obtenir un devis', en: 'Could not get a price quote' },
+  'newDelivery.getQuote': { fr: 'Obtenir un devis', en: 'Get price quote' },
+  'newDelivery.continuePay': { fr: 'Continuer vers le paiement', en: 'Continue to payment' },
+  'newDelivery.promoCode': { fr: 'Code promo (optionnel)', en: 'Promo code (optional)' },
+  'newDelivery.promoFirst': { fr: 'Obtenez un devis d\'abord', en: 'Get a price quote first' },
+  'newDelivery.invalidPromo': { fr: 'Code promo invalide', en: 'Invalid promo code' },
+  'newDelivery.youPay': { fr: 'Vous payez', en: 'You pay' },
+  'newDelivery.promo': { fr: 'Promo', en: 'Promo' },
+  // Package types
+  'pkg.DOCS': { fr: 'Documents', en: 'Documents' },
+  'pkg.FOOD': { fr: 'Nourriture', en: 'Food' },
+  'pkg.SMALL_BOX': { fr: 'Petit colis', en: 'Small box' },
+  'pkg.LARGE_BOX': { fr: 'Grand colis', en: 'Large box' },
+  'pkg.OTHER': { fr: 'Autre', en: 'Other' },
+  // Urgencies
+  'urgency.STANDARD': { fr: 'Standard', en: 'Standard' },
+  'urgency.STANDARD.sub': { fr: '~30–60 min', en: '~30–60 min' },
+  'urgency.EXPRESS': { fr: 'Express', en: 'Express' },
+  'urgency.EXPRESS.sub': { fr: 'Envoi prioritaire', en: 'Priority dispatch' },
+
+  // ─── LANGUAGE SWITCHER ───
+  'lang.switch': { fr: 'Langue', en: 'Language' },
+  'lang.fr': { fr: 'Français', en: 'French' },
+  'lang.en': { fr: 'Anglais', en: 'English' },
+  'lang.switchTo': { fr: 'Passer en {lang}', en: 'Switch to {lang}' },
+
+  // ─── BOTTOM TAB BAR LABELS ───
+  'tab.merchant.home': { fr: 'Accueil', en: 'Home' },
+  'tab.merchant.history': { fr: 'Historique', en: 'History' },
+  'tab.merchant.new': { fr: 'Envoyer', en: 'New' },
+  'tab.merchant.more': { fr: 'Plus', en: 'More' },
+  'tab.driver.home': { fr: 'Accueil', en: 'Home' },
+  'tab.driver.earnings': { fr: 'Gains', en: 'Earnings' },
+  'tab.driver.notifications': { fr: 'Notifications', en: 'Notifications' },
+  'tab.driver.profile': { fr: 'Profil', en: 'Profile' },
 };
 
 /**
- * Get a translated string
+ * Get a translated string. Supports {name} interpolation.
  * @param {string} key - string key
  * @param {string} lang - 'fr' | 'en'
+ * @param {object} [vars] - optional interpolation map { name: 'Kodjo' }
  * @returns {string}
  */
-export function t(key, lang = 'fr') {
+export function t(key, lang = 'fr', vars) {
   const entry = strings[key];
   if (!entry) return key;
-  return entry[lang] || entry.en || key;
+  let str = entry[lang] || entry.en || key;
+  if (vars) {
+    Object.keys(vars).forEach(k => {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), vars[k]);
+    });
+  }
+  return str;
 }
 
 /**
- * Get the user's preferred language from their profile
- * Falls back to 'fr' (francophone West Africa default)
+ * Get the user's preferred language from their profile.
+ * Falls back to 'fr' (francophone West Africa default).
  */
 export function getLang(user) {
   return user?.language === 'en' ? 'en' : 'fr';

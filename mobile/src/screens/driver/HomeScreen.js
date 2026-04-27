@@ -5,19 +5,22 @@ import MapView from '../../components/MapView';
 import * as Location from 'expo-location';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
 import api from '../../utils/api';
 
 const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', forestSoft: '#2D5E3E', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', success: '#2D5E3E' };
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
+  const { lang } = useLang();
   const { getSocket } = useSocket();
   const [isOnline, setIsOnline] = useState(false);
   const [location, setLocation] = useState(null);
   const [availableJobs, setAvailableJobs] = useState([]);
   const [activeJob, setActiveJob] = useState(null);
   const [todayStats, setTodayStats] = useState({ earnings: 0, deliveries: 0 });
-  const [payoutStatus, setPayoutStatus] = useState(null); // {pendingEarnings, pinSet, isOnShift, payoutPhone}
+  const [payoutStatus, setPayoutStatus] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const locationSub = useRef(null);
   const mapRef = useRef(null);
@@ -70,10 +73,6 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => { loadJobs(); }, [location, loadJobs]);
 
-  // Going online: must successfully start a shift first (which enforces PIN + payout phone +
-  // approved status server-side). If shift/start fails, we revert the toggle and surface the
-  // server's reason so the driver can fix it (e.g., set up PIN). Going offline does NOT
-  // auto-end the shift — driver must explicitly press "End shift" to cash out.
   useEffect(() => {
     let cancelled = false;
     if (isOnline) {
@@ -84,16 +83,16 @@ export default function HomeScreen({ navigation }) {
             await loadPayoutStatus();
           } catch (err) {
             const code = err.response?.data?.code;
-            const msg = err.response?.data?.message || 'Could not start shift';
+            const msg = err.response?.data?.message || t('driverHome.couldNotStart', lang);
             if (cancelled) return;
             setIsOnline(false);
             if (code === 'PAYOUT_NOT_CONFIGURED') {
-              Alert.alert('Set up payout first', msg, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Set up PIN', onPress: () => navigation.navigate('PayoutPinSetup') },
+              Alert.alert(t('driverHome.setupPayout', lang), msg, [
+                { text: t('common.cancel', lang), style: 'cancel' },
+                { text: t('driverHome.setupPin', lang), onPress: () => navigation.navigate('PayoutPinSetup') },
               ]);
             } else {
-              Alert.alert("Can't go online", msg);
+              Alert.alert(t('driverHome.cantOnline', lang), msg);
             }
             return;
           }
@@ -124,7 +123,6 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // Socket job alerts
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -141,63 +139,61 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  const dateLocale = lang === 'fr' ? 'fr-FR' : 'en-US';
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.cream }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.forest} />}>
-      {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
-          <Text style={s.greeting}>Hello, {user?.firstName}</Text>
-          <Text style={s.date}>{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+          <Text style={s.greeting}>{t('driverHome.hello', lang, { name: user?.firstName })}</Text>
+          <Text style={s.date}>{new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={s.onlineLabel}>{isOnline ? 'Online' : 'Offline'}</Text>
+          <Text style={s.onlineLabel}>{isOnline ? t('driverHome.online', lang) : t('driverHome.offline', lang)}</Text>
           <Switch value={isOnline} onValueChange={setIsOnline}
             trackColor={{ false: C.border, true: C.forestSoft }}
             thumbColor={isOnline ? C.forest : C.subtle} />
         </View>
       </View>
 
-      {/* Active delivery banner */}
       {activeJob && (
         <TouchableOpacity style={s.activeBanner} onPress={() => navigation.navigate('ActiveDelivery', { jobId: (activeJob.job || activeJob).id })}>
           <View style={{ flex: 1 }}>
-            <Text style={s.activeLabel}>ACTIVE DELIVERY</Text>
+            <Text style={s.activeLabel}>{t('driverHome.activeLabel', lang)}</Text>
             <Text style={s.activeAddr} numberOfLines={1}>{(activeJob.job || activeJob).dropoffAddress}</Text>
             <Text style={s.activePrice}>{(activeJob.job || activeJob).priceOffered} {(activeJob.job || activeJob).currency}</Text>
           </View>
-          <Text style={s.activeAction}>Continue →</Text>
+          <Text style={s.activeAction}>{t('driverHome.continue', lang)}</Text>
         </TouchableOpacity>
       )}
 
-      {/* Pending earnings card — surfaces cash-out CTA when there's something to collect */}
       <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Earnings')}>
         <View style={[s.earningsCard, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && s.earningsCardActive]}>
           <View style={{ flex: 1 }}>
-            <Text style={[s.cardLabel, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>READY TO CASH OUT</Text>
+            <Text style={[s.cardLabel, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>{t('driverHome.readyCashout', lang)}</Text>
             <Text style={[s.cardAmount, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: C.paper }]}>
               {Math.round(parseFloat(payoutStatus?.pendingEarnings || 0)).toLocaleString()}
             </Text>
-            <Text style={[s.cardCurrency, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>XOF pending</Text>
+            <Text style={[s.cardCurrency, parseFloat(payoutStatus?.pendingEarnings || 0) > 0 && { color: '#C4D4C8' }]}>{t('driverHome.xofPending', lang)}</Text>
           </View>
           {parseFloat(payoutStatus?.pendingEarnings || 0) > 0 ? (
             <TouchableOpacity style={s.cashoutPill} onPress={goToEndShift}>
-              <Text style={s.cashoutPillText}>End shift</Text>
+              <Text style={s.cashoutPillText}>{t('driverHome.endShift', lang)}</Text>
             </TouchableOpacity>
           ) : (
             <>
               <View style={s.cardDivider} />
               <View style={{ flex: 1 }}>
-                <Text style={s.cardLabel}>DELIVERIES</Text>
+                <Text style={s.cardLabel}>{t('driverHome.deliveriesLabel', lang)}</Text>
                 <Text style={s.cardAmount}>{todayStats.deliveries}</Text>
-                <Text style={s.cardCurrency}>all time</Text>
+                <Text style={s.cardCurrency}>{t('driverHome.allTime', lang)}</Text>
               </View>
             </>
           )}
         </View>
       </TouchableOpacity>
 
-      {/* Map */}
       {location && (
         <View style={s.mapWrap}>
           <View style={{ height: 240 }}>
@@ -219,22 +215,21 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
-      {/* Available jobs */}
       <View style={s.jobsSection}>
         <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>Available near you</Text>
-          <Text style={s.sectionCount}>{availableJobs.length} {availableJobs.length === 1 ? 'job' : 'jobs'}</Text>
+          <Text style={s.sectionTitle}>{t('driverHome.availableNear', lang)}</Text>
+          <Text style={s.sectionCount}>{availableJobs.length} {availableJobs.length === 1 ? t('driverHome.jobOne', lang) : t('driverHome.jobMany', lang)}</Text>
         </View>
 
         {!isOnline ? (
           <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>Go online to receive jobs</Text>
-            <Text style={s.emptyText}>Turn on the switch above to see available deliveries.</Text>
+            <Text style={s.emptyTitle}>{t('driverHome.goOnline', lang)}</Text>
+            <Text style={s.emptyText}>{t('driverHome.goOnlineDesc', lang)}</Text>
           </View>
         ) : availableJobs.length === 0 ? (
           <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>No jobs nearby right now</Text>
-            <Text style={s.emptyText}>We'll notify you the moment one appears.</Text>
+            <Text style={s.emptyTitle}>{t('driverHome.noJobs', lang)}</Text>
+            <Text style={s.emptyText}>{t('driverHome.noJobsDesc', lang)}</Text>
           </View>
         ) : (
           availableJobs.slice(0, 10).map(({ job }) => (
@@ -242,7 +237,7 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <View style={s.urgencyChip}>
-                  <Text style={s.urgencyText}>{job.urgency || 'STANDARD'}</Text>
+                  <Text style={s.urgencyText}>{t(`urgency.${job.urgency || 'STANDARD'}`, lang).toUpperCase()}</Text>
                 </View>
                 <Text style={s.jobPrice}>{job.priceOffered} {job.currency}</Text>
               </View>
@@ -254,7 +249,7 @@ export default function HomeScreen({ navigation }) {
                 <View style={{ width: 3, backgroundColor: C.forest, borderRadius: 2 }} />
                 <Text style={s.jobAddr} numberOfLines={1}>{job.dropoffAddress}</Text>
               </View>
-              <Text style={s.jobMeta}>{job.packageType} {job.weightKg ? `· ${job.weightKg} kg` : ''}</Text>
+              <Text style={s.jobMeta}>{t(`pkg.${job.packageType}`, lang)}{job.weightKg ? ` · ${job.weightKg} kg` : ''}</Text>
             </TouchableOpacity>
           ))
         )}

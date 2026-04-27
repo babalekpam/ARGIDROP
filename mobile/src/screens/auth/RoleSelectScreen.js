@@ -1,28 +1,35 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
+import LanguageToggle from '../../components/LanguageToggle';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9' };
 
 export default function RoleSelectScreen({ navigation }) {
+  const { lang } = useLang();
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" />
       <View style={s.container}>
-        <View style={{ marginTop: 8 }}>
-          <Text style={s.brand}>ArgiDrop</Text>
-          <Text style={s.brandSub}>Lomé · West Africa</Text>
+        <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View>
+            <Text style={s.brand}>ArgiDrop</Text>
+            <Text style={s.brandSub}>{t('role.brandSub', lang)}</Text>
+          </View>
+          <LanguageToggle />
         </View>
 
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={s.title}>Welcome</Text>
-          <Text style={s.subtitle}>How will you use ArgiDrop today?</Text>
+          <Text style={s.title}>{t('role.welcome', lang)}</Text>
+          <Text style={s.subtitle}>{t('role.howUse', lang)}</Text>
 
           <TouchableOpacity style={s.card} onPress={() => navigation.navigate('Register', { role: 'BUSINESS' })} activeOpacity={0.85}>
             <View style={s.iconWrap}><Ionicons name="storefront-outline" size={26} color={C.forest} /></View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>I'm a Merchant</Text>
-              <Text style={s.cardDesc}>Send packages, manage your shop's deliveries, track orders live.</Text>
+              <Text style={s.cardTitle}>{t('role.merchant.title', lang)}</Text>
+              <Text style={s.cardDesc}>{t('role.merchant.desc', lang)}</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color={C.bronze} />
           </TouchableOpacity>
@@ -30,15 +37,15 @@ export default function RoleSelectScreen({ navigation }) {
           <TouchableOpacity style={s.card} onPress={() => navigation.navigate('Register', { role: 'DRIVER' })} activeOpacity={0.85}>
             <View style={s.iconWrap}><Ionicons name="bicycle-outline" size={26} color={C.forest} /></View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>I'm a Driver</Text>
-              <Text style={s.cardDesc}>Earn money on your schedule. Get paid daily to mobile money.</Text>
+              <Text style={s.cardTitle}>{t('role.driver.title', lang)}</Text>
+              <Text style={s.cardDesc}>{t('role.driver.desc', lang)}</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color={C.bronze} />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ alignItems: 'center', paddingVertical: 16 }}>
-          <Text style={s.link}>Already have an account? <Text style={{ color: C.forest, fontWeight: '600' }}>Sign in</Text></Text>
+          <Text style={s.link}>{t('role.alreadyAccount', lang)} <Text style={{ color: C.forest, fontWeight: '600' }}>{t('role.signin', lang)}</Text></Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

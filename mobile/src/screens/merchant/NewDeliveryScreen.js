@@ -2,25 +2,18 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
 import api from '../../utils/api';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', amber:'#C28B2C', red:'#B23A48' };
 
-const PACKAGE_TYPES = [
-  { code: 'DOCS', label: 'Documents' },
-  { code: 'FOOD', label: 'Food' },
-  { code: 'SMALL_BOX', label: 'Small box' },
-  { code: 'LARGE_BOX', label: 'Large box' },
-  { code: 'OTHER', label: 'Other' },
-];
-
-const URGENCIES = [
-  { code: 'STANDARD', label: 'Standard', sub: '~30–60 min' },
-  { code: 'EXPRESS', label: 'Express', sub: 'Priority dispatch' },
-];
+const PACKAGE_TYPE_CODES = ['DOCS', 'FOOD', 'SMALL_BOX', 'LARGE_BOX', 'OTHER'];
+const URGENCY_CODES = ['STANDARD', 'EXPRESS'];
 
 export default function NewDeliveryScreen({ navigation }) {
-  const [pickup, setPickup] = useState(null); // { lat, lng, address }
+  const { lang } = useLang();
+  const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
 
   const [pickupContactName, setPickupContactName] = useState('');
@@ -37,11 +30,10 @@ export default function NewDeliveryScreen({ navigation }) {
   const [isFragile, setIsFragile] = useState(false);
   const [urgency, setUrgency] = useState('STANDARD');
 
-  const [quote, setQuote] = useState(null); // { totalPrice, currency, breakdown }
+  const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
 
-  // Reset quote whenever inputs that affect price change
   const invalidateQuote = () => setQuote(null);
 
   const openPicker = (mode) => {
@@ -82,7 +74,7 @@ export default function NewDeliveryScreen({ navigation }) {
         breakdown: d.breakdown || {},
       });
     } catch (e) {
-      setQuoteError(e.response?.data?.message || 'Could not get a price quote');
+      setQuoteError(e.response?.data?.message || t('newDelivery.couldNotQuote', lang));
     } finally {
       setQuoteLoading(false);
     }
@@ -107,32 +99,25 @@ export default function NewDeliveryScreen({ navigation }) {
         urgency,
         priceOffered: quote.totalPrice,
         currency: quote.currency,
-        // Only forward the promo if it has been successfully validated
-        // against this exact amount. Backend re-validates anyway.
         promoCode: promoApplied?.code || undefined,
       },
       quote,
-      // Snapshot of the validated discount for the PaymentSheet's display.
       promoPreview: promoApplied || null,
     });
   };
 
-  // ─── PROMO STATE ───
   const [promoCode, setPromoCode] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState('');
-  // When set, reflects a server-validated promo for the current quote.
   const [promoApplied, setPromoApplied] = useState(null);
 
-  // Drop a stale promo whenever the underlying quote changes — the discount
-  // is computed against the quote amount, so a new quote means re-validate.
   useEffect(() => { setPromoApplied(null); }, [quote?.totalPrice]);
 
   const applyPromo = async () => {
     const code = promoCode.trim().toUpperCase();
     if (!code) return;
     if (!quote?.totalPrice) {
-      setPromoError('Get a price quote first');
+      setPromoError(t('newDelivery.promoFirst', lang));
       return;
     }
     setPromoLoading(true); setPromoError('');
@@ -146,7 +131,7 @@ export default function NewDeliveryScreen({ navigation }) {
         description: d.promo?.description,
       });
     } catch (e) {
-      setPromoError(e.response?.data?.message || 'Invalid promo code');
+      setPromoError(e.response?.data?.message || t('newDelivery.invalidPromo', lang));
       setPromoApplied(null);
     } finally { setPromoLoading(false); }
   };
@@ -159,121 +144,115 @@ export default function NewDeliveryScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={26} color={C.forest} />
         </TouchableOpacity>
-        <Text style={s.title}>New delivery</Text>
+        <Text style={s.title}>{t('newDelivery.title', lang)}</Text>
         <View style={{ width: 26 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        {/* Pickup */}
-        <Section title="Pickup">
+        <Section title={t('newDelivery.pickup', lang)}>
           <LocationButton
             color={C.bronze}
             location={pickup}
-            placeholder="Choose pickup on map"
+            placeholder={t('newDelivery.choosePickup', lang)}
             onPress={() => openPicker('pickup')}
           />
-          <Field label="Contact name (optional)">
-            <TextInput value={pickupContactName} onChangeText={setPickupContactName} style={s.input} placeholder="e.g. Yawa" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.contactName', lang)}>
+            <TextInput value={pickupContactName} onChangeText={setPickupContactName} style={s.input} placeholder={t('newDelivery.contactNamePh', lang)} placeholderTextColor={C.subtle} />
           </Field>
-          <Field label="Contact phone (optional)">
+          <Field label={t('newDelivery.contactPhone', lang)}>
             <TextInput value={pickupContactPhone} onChangeText={setPickupContactPhone} style={s.input} keyboardType="phone-pad" placeholder="+228..." placeholderTextColor={C.subtle} />
           </Field>
-          <Field label="Pickup notes (optional)">
-            <TextInput value={pickupNotes} onChangeText={setPickupNotes} style={[s.input, s.multiline]} multiline placeholder="Gate code, floor, instructions" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.pickupNotes', lang)}>
+            <TextInput value={pickupNotes} onChangeText={setPickupNotes} style={[s.input, s.multiline]} multiline placeholder={t('newDelivery.pickupNotesPh', lang)} placeholderTextColor={C.subtle} />
           </Field>
         </Section>
 
-        {/* Dropoff */}
-        <Section title="Drop-off">
+        <Section title={t('newDelivery.dropoff', lang)}>
           <LocationButton
             color={C.forest}
             location={dropoff}
-            placeholder="Choose drop-off on map"
+            placeholder={t('newDelivery.chooseDropoff', lang)}
             onPress={() => openPicker('dropoff')}
           />
-          <Field label="Recipient name *">
-            <TextInput value={dropoffContactName} onChangeText={setDropoffContactName} style={s.input} placeholder="Who receives the package?" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.recipientName', lang)}>
+            <TextInput value={dropoffContactName} onChangeText={setDropoffContactName} style={s.input} placeholder={t('newDelivery.recipientNamePh', lang)} placeholderTextColor={C.subtle} />
           </Field>
-          <Field label="Recipient phone *">
+          <Field label={t('newDelivery.recipientPhone', lang)}>
             <TextInput value={dropoffContactPhone} onChangeText={setDropoffContactPhone} style={s.input} keyboardType="phone-pad" placeholder="+228..." placeholderTextColor={C.subtle} />
           </Field>
-          <Field label="Drop-off notes (optional)">
-            <TextInput value={dropoffNotes} onChangeText={setDropoffNotes} style={[s.input, s.multiline]} multiline placeholder="Apartment number, landmark…" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.dropNotes', lang)}>
+            <TextInput value={dropoffNotes} onChangeText={setDropoffNotes} style={[s.input, s.multiline]} multiline placeholder={t('newDelivery.dropNotesPh', lang)} placeholderTextColor={C.subtle} />
           </Field>
         </Section>
 
-        {/* Package */}
-        <Section title="Package">
-          <Field label="Type">
+        <Section title={t('newDelivery.package', lang)}>
+          <Field label={t('newDelivery.type', lang)}>
             <View style={s.pillRow}>
-              {PACKAGE_TYPES.map(t => (
-                <TouchableOpacity key={t.code} style={[s.pill, packageType === t.code && s.pillActive]} onPress={() => { setPackageType(t.code); invalidateQuote(); }}>
-                  <Text style={[s.pillText, packageType === t.code && s.pillTextActive]}>{t.label}</Text>
+              {PACKAGE_TYPE_CODES.map(code => (
+                <TouchableOpacity key={code} style={[s.pill, packageType === code && s.pillActive]} onPress={() => { setPackageType(code); invalidateQuote(); }}>
+                  <Text style={[s.pillText, packageType === code && s.pillTextActive]}>{t(`pkg.${code}`, lang)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </Field>
-          <Field label="Weight (kg, optional)">
-            <TextInput value={weightKg} onChangeText={(v) => { setWeightKg(v.replace(/[^\d.]/g, '')); invalidateQuote(); }} style={s.input} keyboardType="decimal-pad" placeholder="e.g. 2.5" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.weight', lang)}>
+            <TextInput value={weightKg} onChangeText={(v) => { setWeightKg(v.replace(/[^\d.]/g, '')); invalidateQuote(); }} style={s.input} keyboardType="decimal-pad" placeholder={t('newDelivery.weightPh', lang)} placeholderTextColor={C.subtle} />
           </Field>
           <View style={[s.row, { marginTop: 12 }]}>
-            <Text style={s.toggleLabel}>Fragile package</Text>
+            <Text style={s.toggleLabel}>{t('newDelivery.fragile', lang)}</Text>
             <Switch value={isFragile} onValueChange={(v) => { setIsFragile(v); invalidateQuote(); }} trackColor={{ true: C.forest, false: C.border }} thumbColor={C.paper} />
           </View>
-          <Field label="Description (optional)">
-            <TextInput value={packageDescription} onChangeText={setPackageDescription} style={[s.input, s.multiline]} multiline placeholder="What's inside?" placeholderTextColor={C.subtle} />
+          <Field label={t('newDelivery.description', lang)}>
+            <TextInput value={packageDescription} onChangeText={setPackageDescription} style={[s.input, s.multiline]} multiline placeholder={t('newDelivery.descriptionPh', lang)} placeholderTextColor={C.subtle} />
           </Field>
         </Section>
 
-        {/* Urgency */}
-        <Section title="Urgency">
+        <Section title={t('newDelivery.urgency', lang)}>
           <View style={s.urgencyRow}>
-            {URGENCIES.map(u => (
-              <TouchableOpacity key={u.code} style={[s.urgencyCard, urgency === u.code && s.urgencyCardActive]} onPress={() => { setUrgency(u.code); invalidateQuote(); }}>
-                <Text style={[s.urgencyLabel, urgency === u.code && { color: C.forest }]}>{u.label}</Text>
-                <Text style={[s.urgencySub, urgency === u.code && { color: C.forest }]}>{u.sub}</Text>
+            {URGENCY_CODES.map(code => (
+              <TouchableOpacity key={code} style={[s.urgencyCard, urgency === code && s.urgencyCardActive]} onPress={() => { setUrgency(code); invalidateQuote(); }}>
+                <Text style={[s.urgencyLabel, urgency === code && { color: C.forest }]}>{t(`urgency.${code}`, lang)}</Text>
+                <Text style={[s.urgencySub, urgency === code && { color: C.forest }]}>{t(`urgency.${code}.sub`, lang)}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </Section>
 
-        {/* Quote + submit */}
         <View style={s.quoteCard}>
           {quote ? (
             <>
-              <Text style={s.quoteLabel}>Estimated price</Text>
+              <Text style={s.quoteLabel}>{t('newDelivery.estimated', lang)}</Text>
               <Text style={s.quotePrice}>{Math.round(parseFloat(quote.totalPrice)).toLocaleString()} <Text style={s.quoteCurrency}>{quote.currency}</Text></Text>
               {quote.distanceKm != null && (
-                <Text style={s.quoteSub}>{Number(quote.distanceKm).toFixed(1)} km · {URGENCIES.find(u => u.code === urgency)?.label}</Text>
+                <Text style={s.quoteSub}>{Number(quote.distanceKm).toFixed(1)} km · {t(`urgency.${urgency}`, lang)}</Text>
               )}
             </>
           ) : (
             <>
-              <Text style={s.quoteLabel}>Price</Text>
-              <Text style={s.quoteEmpty}>Get a quote once both locations are set</Text>
+              <Text style={s.quoteLabel}>{t('newDelivery.priceLabel', lang)}</Text>
+              <Text style={s.quoteEmpty}>{t('newDelivery.quoteOnce', lang)}</Text>
             </>
           )}
           {quoteError ? <Text style={s.errText}>{quoteError}</Text> : null}
 
-          {/* Promo code — only meaningful once we have a quote */}
           {quote && (
             <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border }}>
               {promoApplied ? (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: C.muted }}>Promo · {promoApplied.code}</Text>
+                    <Text style={{ fontSize: 12, color: C.muted }}>{t('newDelivery.promo', lang)} · {promoApplied.code}</Text>
                     <Text style={{ fontSize: 14, color: C.forest, fontWeight: '600', marginTop: 2 }}>
                       − {Math.round(promoApplied.discount).toLocaleString()} {quote.currency}
                     </Text>
                     {promoApplied.description ? <Text style={{ fontSize: 11, color: C.muted, marginTop: 2 }} numberOfLines={2}>{promoApplied.description}</Text> : null}
                   </View>
                   <TouchableOpacity onPress={removePromo}>
-                    <Text style={{ color: C.muted, fontSize: 13, padding: 4 }}>Remove</Text>
+                    <Text style={{ color: C.muted, fontSize: 13, padding: 4 }}>{t('common.remove', lang)}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View>
-                  <Text style={s.fieldLabel}>Promo code (optional)</Text>
+                  <Text style={s.fieldLabel}>{t('newDelivery.promoCode', lang)}</Text>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TextInput
                       value={promoCode}
@@ -291,7 +270,7 @@ export default function NewDeliveryScreen({ navigation }) {
                     >
                       {promoLoading
                         ? <ActivityIndicator color={C.paper} />
-                        : <Text style={{ color: C.paper, fontWeight: '600', fontSize: 13 }}>Apply</Text>}
+                        : <Text style={{ color: C.paper, fontWeight: '600', fontSize: 13 }}>{t('common.apply', lang)}</Text>}
                     </TouchableOpacity>
                   </View>
                   {promoError ? <Text style={s.errText}>{promoError}</Text> : null}
@@ -299,7 +278,7 @@ export default function NewDeliveryScreen({ navigation }) {
               )}
               {promoApplied && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-                  <Text style={{ fontSize: 12, color: C.muted, fontWeight: '600' }}>You pay</Text>
+                  <Text style={{ fontSize: 12, color: C.muted, fontWeight: '600' }}>{t('newDelivery.youPay', lang)}</Text>
                   <Text style={{ fontSize: 16, color: C.ink, fontWeight: '700' }}>
                     {Math.round(promoApplied.finalAmount).toLocaleString()} {quote.currency}
                   </Text>
@@ -316,7 +295,7 @@ export default function NewDeliveryScreen({ navigation }) {
             >
               {quoteLoading
                 ? <ActivityIndicator color={C.paper} />
-                : <Text style={s.btnText}>Get price quote</Text>}
+                : <Text style={s.btnText}>{t('newDelivery.getQuote', lang)}</Text>}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -324,7 +303,7 @@ export default function NewDeliveryScreen({ navigation }) {
               onPress={goToPayment}
               disabled={!canSubmit}
             >
-              <Text style={s.btnText}>Continue to payment</Text>
+              <Text style={s.btnText}>{t('newDelivery.continuePay', lang)}</Text>
             </TouchableOpacity>
           )}
         </View>

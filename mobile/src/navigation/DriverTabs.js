@@ -5,12 +5,15 @@ import HomeScreen from '../screens/driver/HomeScreen';
 import EarningsScreen from '../screens/driver/EarningsScreen';
 import NotificationsScreen from '../screens/driver/NotificationsScreen';
 import ProfileScreen from '../screens/driver/ProfileScreen';
+import { useLang } from '../context/LanguageContext';
+import { t } from '../utils/i18n';
 
 const Tab = createBottomTabNavigator();
 
 const C = { paper: '#FDFBF6', border: '#E4DCC9', forest: '#1B4332', muted: '#6B6560' };
 
 export default function DriverTabs() {
+  const { lang } = useLang();
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
       headerShown: false,
@@ -24,10 +27,10 @@ export default function DriverTabs() {
         return <Ionicons name={focused ? name : `${name}-outline`} size={22} color={color} />;
       }
     })}>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Earnings" component={EarningsScreen} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('tab.driver.home', lang) }} />
+      <Tab.Screen name="Earnings" component={EarningsScreen} options={{ tabBarLabel: t('tab.driver.earnings', lang) }} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarLabel: t('tab.driver.notifications', lang) }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('tab.driver.profile', lang) }} />
     </Tab.Navigator>
   );
 }

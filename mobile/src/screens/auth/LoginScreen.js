@@ -1,43 +1,50 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LanguageContext';
+import { t } from '../../utils/i18n';
+import LanguageToggle from '../../components/LanguageToggle';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9' };
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
+  const { lang } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    if (!email || !password) return Alert.alert('Champs requis', 'Please enter your email and password');
+    if (!email || !password) return Alert.alert(t('login.requiredFields', lang), t('login.requiredFieldsMsg', lang));
     setLoading(true);
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (err) {
-      Alert.alert('Login failed', err.response?.data?.message || 'Invalid credentials');
+      Alert.alert(t('login.failed', lang), err.response?.data?.message || t('login.invalidCreds', lang));
     } finally { setLoading(false); }
   };
 
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={{ position: 'absolute', top: 50, right: 24 }}>
+        <LanguageToggle />
+      </View>
       <View style={s.header}>
         <Text style={s.brand}>ArgiDrop</Text>
         <Text style={s.brandSub}>by ARGILETTE</Text>
-        <Text style={s.title}>Sign in</Text>
-        <Text style={s.subtitle}>Welcome back, driver</Text>
+        <Text style={s.title}>{t('login.title', lang)}</Text>
+        <Text style={s.subtitle}>{t('login.subtitle', lang)}</Text>
       </View>
       <View style={s.form}>
-        <Text style={s.label}>Email address</Text>
+        <Text style={s.label}>{t('login.email', lang)}</Text>
         <TextInput style={s.input} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholderTextColor={C.subtle} placeholder="your@email.com" />
-        <Text style={[s.label, { marginTop: 14 }]}>Password</Text>
+        <Text style={[s.label, { marginTop: 14 }]}>{t('login.password', lang)}</Text>
         <TextInput style={s.input} value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor={C.subtle} placeholder="••••••••" />
         <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
-          {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>Sign in</Text>}
+          {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{t('login.submit', lang)}</Text>}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginTop: 16, alignItems: 'center' }}>
-          <Text style={s.link}>New driver? <Text style={{ color: C.forest, fontWeight: '600' }}>Register here</Text></Text>
+          <Text style={s.link}>{t('login.newDriver', lang)} <Text style={{ color: C.forest, fontWeight: '600' }}>{t('login.registerHere', lang)}</Text></Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', borderSoft:'#EFE8D7' };
 
-const NAV = [
-  { to:'/dashboard', label:'Dashboard', icon:'▦', end:true },
-  { to:'/dashboard/post-job', label:'Post delivery', icon:'＋' },
-  { to:'/dashboard/jobs', label:'My deliveries', icon:'📦' },
-  { to:'/dashboard/wallet', label:'Wallet', icon:'💳' },
-  { to:'/dashboard/invoices', label:'Invoices', icon:'🧾' },
-  { divider: true, label: 'Marketplace' },
-  { to:'/dashboard/listings', label:'My listings', icon:'🏪' },
-  { to:'/dashboard/marketplace', label:'Browse merchants', icon:'🌍' },
-  { divider: true, label: 'Account' },
-  { to:'/dashboard/profile', label:'Settings', icon:'⚙' },
-];
-
 export default function BusinessLayout() {
+  const { t } = useTranslation();
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const [wallet, setWallet] = useState(null);
   const [activeJobs, setActiveJobs] = useState(0);
+
+  const NAV = [
+    { to:'/dashboard', label:t('business.nav.dashboard'), icon:'▦', end:true },
+    { to:'/dashboard/post-job', label:t('business.nav.postDelivery'), icon:'＋' },
+    { to:'/dashboard/jobs', label:t('business.nav.myDeliveries'), icon:'📦' },
+    { to:'/dashboard/wallet', label:t('business.nav.wallet'), icon:'💳' },
+    { to:'/dashboard/invoices', label:t('business.nav.invoices'), icon:'🧾' },
+    { divider: true, label: t('business.nav.marketplace') },
+    { to:'/dashboard/listings', label:t('business.nav.myListings'), icon:'🏪' },
+    { to:'/dashboard/marketplace', label:t('business.nav.browseMerchants'), icon:'🌍' },
+    { divider: true, label: t('business.nav.account') },
+    { to:'/dashboard/profile', label:t('business.nav.settings'), icon:'⚙' },
+  ];
 
   useEffect(() => {
     api.get('/wallets/balance').then(r => setWallet(r.data.wallet)).catch(() => {});
@@ -38,20 +41,23 @@ export default function BusinessLayout() {
       {/* Sidebar */}
       <aside style={{ width:220, background:C.paper, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', flexShrink:0, position:'sticky', top:0, height:'100vh' }}>
         {/* Logo */}
-        <div style={{ padding:'20px 18px 14px', borderBottom:`1px solid ${C.borderSoft}` }}>
-          <div style={{ fontFamily:'Fraunces, serif', fontSize:18, fontWeight:600, color:C.forest, letterSpacing:'-0.02em' }}>
-            Argi<em style={{ fontStyle:'italic', color:C.bronze }}>Drop</em>
+        <div style={{ padding:'20px 18px 14px', borderBottom:`1px solid ${C.borderSoft}`, display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+          <div>
+            <div style={{ fontFamily:'Fraunces, serif', fontSize:18, fontWeight:600, color:C.forest, letterSpacing:'-0.02em' }}>
+              Argi<em style={{ fontStyle:'italic', color:C.bronze }}>Drop</em>
+            </div>
+            <div style={{ fontSize:10, color:C.bronze, fontWeight:500, letterSpacing:'0.12em', textTransform:'uppercase', marginTop:2 }}>by ARGILETTE</div>
           </div>
-          <div style={{ fontSize:10, color:C.bronze, fontWeight:500, letterSpacing:'0.12em', textTransform:'uppercase', marginTop:2 }}>by ARGILETTE</div>
+          <LanguageSwitcher compact />
         </div>
 
         {/* Business info */}
         <div style={{ padding:'12px 18px', borderBottom:`1px solid ${C.borderSoft}` }}>
           <div style={{ fontSize:13, fontWeight:500, color:C.ink }}>{profile?.companyName || user?.firstName}</div>
-          <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>Business account</div>
+          <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{t('business.sidebar.businessAccount')}</div>
           {wallet && (
             <div style={{ marginTop:8, background:C.cream, borderRadius:4, padding:'6px 10px', border:`1px solid ${C.borderSoft}` }}>
-              <div style={{ fontSize:10, color:C.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em' }}>Wallet</div>
+              <div style={{ fontSize:10, color:C.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em' }}>{t('business.sidebar.walletLabel')}</div>
               <div style={{ fontFamily:'Fraunces, serif', fontSize:15, fontWeight:500, color:C.forest }}>
                 {(parseFloat(wallet.balance) - parseFloat(wallet.heldBalance || 0)).toLocaleString()} <span style={{ fontSize:11 }}>{wallet.currency || 'XOF'}</span>
               </div>
@@ -93,7 +99,7 @@ export default function BusinessLayout() {
         <div style={{ padding:'12px 18px', borderTop:`1px solid ${C.borderSoft}` }}>
           <button onClick={() => { logout(); navigate('/'); }}
             style={{ width:'100%', background:'transparent', border:`1px solid ${C.border}`, color:C.muted, borderRadius:4, padding:'9px', fontSize:13, cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
-            Sign out
+            {t('nav.signOut')}
           </button>
         </div>
       </aside>
