@@ -47,6 +47,11 @@ export default function MerchantMoreScreen({ navigation }) {
         <Row icon="document-text-outline" label="Invoices" hint="Download monthly invoices" onPress={() => todo('Invoices')} />
       </View>
 
+      <Text style={s.section}>Grow</Text>
+      <View style={s.group}>
+        <Row icon="gift-outline" label="Invite & earn" hint="Get a free delivery for each shop you bring" onPress={() => navigation.navigate('Invite')} />
+      </View>
+
       <Text style={s.section}>Account</Text>
       <View style={s.group}>
         <Row icon="person-outline" label="Personal info" onPress={() => todo('Personal info')} />

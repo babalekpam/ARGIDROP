@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -107,10 +107,51 @@ export default function NewDeliveryScreen({ navigation }) {
         urgency,
         priceOffered: quote.totalPrice,
         currency: quote.currency,
+        // Only forward the promo if it has been successfully validated
+        // against this exact amount. Backend re-validates anyway.
+        promoCode: promoApplied?.code || undefined,
       },
       quote,
+      // Snapshot of the validated discount for the PaymentSheet's display.
+      promoPreview: promoApplied || null,
     });
   };
+
+  // ─── PROMO STATE ───
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState('');
+  // When set, reflects a server-validated promo for the current quote.
+  const [promoApplied, setPromoApplied] = useState(null);
+
+  // Drop a stale promo whenever the underlying quote changes — the discount
+  // is computed against the quote amount, so a new quote means re-validate.
+  useEffect(() => { setPromoApplied(null); }, [quote?.totalPrice]);
+
+  const applyPromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    if (!quote?.totalPrice) {
+      setPromoError('Get a price quote first');
+      return;
+    }
+    setPromoLoading(true); setPromoError('');
+    try {
+      const res = await api.post('/promo/validate', { code, jobAmount: quote.totalPrice });
+      const d = res.data;
+      setPromoApplied({
+        code: d.promo?.code || code,
+        discount: d.discount,
+        finalAmount: d.finalAmount,
+        description: d.promo?.description,
+      });
+    } catch (e) {
+      setPromoError(e.response?.data?.message || 'Invalid promo code');
+      setPromoApplied(null);
+    } finally { setPromoLoading(false); }
+  };
+
+  const removePromo = () => { setPromoApplied(null); setPromoCode(''); setPromoError(''); };
 
   return (
     <View style={s.safe}>
@@ -213,6 +254,59 @@ export default function NewDeliveryScreen({ navigation }) {
             </>
           )}
           {quoteError ? <Text style={s.errText}>{quoteError}</Text> : null}
+
+          {/* Promo code — only meaningful once we have a quote */}
+          {quote && (
+            <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border }}>
+              {promoApplied ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: C.muted }}>Promo · {promoApplied.code}</Text>
+                    <Text style={{ fontSize: 14, color: C.forest, fontWeight: '600', marginTop: 2 }}>
+                      − {Math.round(promoApplied.discount).toLocaleString()} {quote.currency}
+                    </Text>
+                    {promoApplied.description ? <Text style={{ fontSize: 11, color: C.muted, marginTop: 2 }} numberOfLines={2}>{promoApplied.description}</Text> : null}
+                  </View>
+                  <TouchableOpacity onPress={removePromo}>
+                    <Text style={{ color: C.muted, fontSize: 13, padding: 4 }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View>
+                  <Text style={s.fieldLabel}>Promo code (optional)</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput
+                      value={promoCode}
+                      onChangeText={setPromoCode}
+                      style={[s.input, { flex: 1 }]}
+                      placeholder="LAUNCH-LOME"
+                      placeholderTextColor={C.subtle}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity
+                      style={{ backgroundColor: C.bronze, borderRadius: 8, paddingHorizontal: 16, justifyContent: 'center' }}
+                      onPress={applyPromo}
+                      disabled={promoLoading || !promoCode.trim()}
+                    >
+                      {promoLoading
+                        ? <ActivityIndicator color={C.paper} />
+                        : <Text style={{ color: C.paper, fontWeight: '600', fontSize: 13 }}>Apply</Text>}
+                    </TouchableOpacity>
+                  </View>
+                  {promoError ? <Text style={s.errText}>{promoError}</Text> : null}
+                </View>
+              )}
+              {promoApplied && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+                  <Text style={{ fontSize: 12, color: C.muted, fontWeight: '600' }}>You pay</Text>
+                  <Text style={{ fontSize: 16, color: C.ink, fontWeight: '700' }}>
+                    {Math.round(promoApplied.finalAmount).toLocaleString()} {quote.currency}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {!quote ? (
             <TouchableOpacity

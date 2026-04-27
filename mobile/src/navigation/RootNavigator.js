@@ -35,6 +35,7 @@ import MerchantJobDetailScreen from '../screens/merchant/JobDetailScreen';
 
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
+import InviteScreen from '../screens/shared/InviteScreen';
 
 const Stack = createStackNavigator();
 
@@ -97,6 +98,7 @@ export default function RootNavigator() {
           <Stack.Screen name="PayoutPinSetup" component={PayoutPinSetupScreen} />
           <Stack.Screen name="EndShift" component={EndShiftScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Invite" component={InviteScreen} />
         </>
       ) : user.role === 'BUSINESS' ? (
         <>
@@ -111,6 +113,7 @@ export default function RootNavigator() {
           <Stack.Screen name="RateDriver" component={RateDriverScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="JobDetail" component={MerchantJobDetailScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Invite" component={InviteScreen} />
         </>
       ) : (
         <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />

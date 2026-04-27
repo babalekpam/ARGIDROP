@@ -11,7 +11,14 @@ const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47'
 //   jobInput: { ...job fields, priceOffered, currency }
 //   quote: { totalPrice, currency }
 export default function PaymentSheetScreen({ route, navigation }) {
-  const { jobInput, quote } = route.params || {};
+  const { jobInput, quote, promoPreview } = route.params || {};
+  // Compute the amount the merchant actually pays. The backend recomputes
+  // this and is the source of truth, but we mirror it here so the UI is
+  // consistent across the funnel.
+  const baseAmount = parseFloat(quote?.totalPrice ?? jobInput?.priceOffered ?? 0) || 0;
+  const discount = promoPreview?.discount || 0;
+  const dueAmount = Math.max(0, +(baseAmount - discount).toFixed(2));
+  const displayCurrency = quote?.currency || jobInput?.currency || 'XOF';
   const { user } = useAuth();
   const country = user?.businessProfile?.country || 'TG';
 
@@ -145,9 +152,21 @@ export default function PaymentSheetScreen({ route, navigation }) {
         <View style={s.amountCard}>
           <Text style={s.amountLabel}>Amount due</Text>
           <Text style={s.amountValue}>
-            {Math.round(parseFloat(quote?.totalPrice || jobInput?.priceOffered || 0)).toLocaleString()}
-            <Text style={s.amountCurr}> {quote?.currency || jobInput?.currency || 'XOF'}</Text>
+            {Math.round(dueAmount).toLocaleString()}
+            <Text style={s.amountCurr}> {displayCurrency}</Text>
           </Text>
+          {promoPreview ? (
+            <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.muted }}>Subtotal</Text>
+              <Text style={{ fontSize: 12, color: C.muted }}>{Math.round(baseAmount).toLocaleString()} {displayCurrency}</Text>
+            </View>
+          ) : null}
+          {promoPreview ? (
+            <View style={{ marginTop: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600' }}>Promo · {promoPreview.code}</Text>
+              <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600' }}>− {Math.round(discount).toLocaleString()} {displayCurrency}</Text>
+            </View>
+          ) : null}
         </View>
 
         <Text style={s.sectionLabel}>Choose payment method</Text>
@@ -205,7 +224,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
         >
           {submitting
             ? <ActivityIndicator color={C.paper} />
-            : <Text style={s.btnText}>Pay {Math.round(parseFloat(quote?.totalPrice || jobInput?.priceOffered || 0)).toLocaleString()} {quote?.currency || jobInput?.currency || 'XOF'}</Text>}
+            : <Text style={s.btnText}>Pay {Math.round(dueAmount).toLocaleString()} {displayCurrency}</Text>}
         </TouchableOpacity>
 
         <Text style={s.legal}>

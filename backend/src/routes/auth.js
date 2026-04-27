@@ -3,16 +3,17 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { eq, and, gt, sql } = require('drizzle-orm');
 const { getDB } = require('../config/database');
-const { users, businesses, drivers, otpCodes, businessDocuments, driverDocuments } = require('../schema');
+const { users, businesses, drivers, otpCodes, businessDocuments, driverDocuments, zones } = require('../schema');
 const { authenticate, generateTokens } = require('../middleware/auth');
 const { sendSMS } = require('../services/notification');
+const { attributeAtSignup } = require('../services/referral');
 
 const router = express.Router();
 
 // POST /register
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, phone, password, firstName, lastName, role, companyName, vehicleType } = req.body;
+    const { email, phone, password, firstName, lastName, role, companyName, vehicleType, referralCode, marketCode, country } = req.body;
     if (!email || !password || !firstName || !lastName || !role) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -24,10 +25,28 @@ router.post('/register', async (req, res, next) => {
     const [existing] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
     if (existing) return res.status(409).json({ success: false, message: 'Email already registered' });
 
+    // Resolve market for the new user. Priority: explicit marketCode in
+    // payload → derived from country → first active market as fallback. This
+    // is what scopes promos and referral rewards for them.
+    let resolvedMarketCode = null;
+    if (marketCode) {
+      const [m] = await db.select().from(zones).where(eq(zones.code, marketCode)).limit(1);
+      if (m) resolvedMarketCode = m.code;
+    }
+    if (!resolvedMarketCode && country) {
+      const [m] = await db.select().from(zones).where(eq(zones.country, country)).limit(1);
+      if (m?.code) resolvedMarketCode = m.code;
+    }
+    if (!resolvedMarketCode) {
+      const [m] = await db.select().from(zones).where(eq(zones.isActive, true)).limit(1);
+      if (m?.code) resolvedMarketCode = m.code;
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
     const [user] = await db.insert(users).values({
       email: email.toLowerCase(), phone, passwordHash, role,
-      firstName, lastName, status: 'PENDING'
+      firstName, lastName, status: 'PENDING',
+      marketCode: resolvedMarketCode,
     }).returning();
 
     // Create role-specific profile
@@ -37,12 +56,29 @@ router.post('/register', async (req, res, next) => {
       await db.insert(drivers).values({ userId: user.id, vehicleType: vehicleType || 'CAR' });
     }
 
+    // Best-effort: attribute the signup to a referrer if a code was provided.
+    // We never block signup on referral failure — the user already exists.
+    let referralResult = null;
+    if (referralCode) {
+      try {
+        referralResult = await attributeAtSignup({
+          newUserId: user.id,
+          newUserRole: role,
+          code: referralCode,
+          marketCode: resolvedMarketCode,
+        });
+      } catch (e) {
+        console.warn('Referral attribution failed:', e.message);
+      }
+    }
+
     const tokens = generateTokens(user.id, user.role);
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
       tokens,
-      user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, status: user.status }
+      user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, status: user.status, marketCode: resolvedMarketCode },
+      referral: referralResult,
     });
   } catch (err) { next(err); }
 });

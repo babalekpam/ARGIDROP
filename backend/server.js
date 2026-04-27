@@ -87,6 +87,8 @@ app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/listings', listingsRoutes);
 app.use('/api/v1/pricing', pricingRoutes);
+app.use('/api/v1/promo', require('./src/routes/promo'));
+app.use('/api/v1/referrals', require('./src/routes/referrals'));
 
 // Serve the built web app (production). When web/dist exists, all non-API
 // requests fall through to the SPA's index.html so client-side routing works.
@@ -171,6 +173,8 @@ async function ensureSuperAdmin() {
     console.log('✅ Queues ready');
     const { startNightlyPayouts } = require('./src/jobs/nightly-payouts');
     startNightlyPayouts();
+    const { startNightlyReferrals } = require('./src/jobs/nightly-referrals');
+    startNightlyReferrals();
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ArgiDrop API on port ${PORT}`));
   } catch (err) {
     console.error('❌ Startup failed:', err);

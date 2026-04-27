@@ -12,8 +12,9 @@ export default function RegisterScreen({ navigation, route }) {
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '', password: '',
-    companyName: '',
+    companyName: '', referralCode: '',
   });
+  const [showReferral, setShowReferral] = useState(false);
   const [loading, setLoading] = useState(false);
   const set = k => v => setForm(p => ({ ...p, [k]: v }));
 
@@ -29,6 +30,8 @@ export default function RegisterScreen({ navigation, route }) {
         phone: form.phone, password: form.password, role,
       };
       if (isMerchant) payload.companyName = form.companyName;
+      const refCode = (form.referralCode || '').trim();
+      if (refCode) payload.referralCode = refCode.toUpperCase();
       await register(payload);
     } catch (err) {
       Alert.alert('Registration failed', err.response?.data?.message || 'Please try again');
@@ -72,6 +75,28 @@ export default function RegisterScreen({ navigation, route }) {
           <TextInput style={s.input} value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholderTextColor={C.subtle} placeholder="+228 90 00 00 00" />
           <Text style={[s.label, { marginTop: 14 }]}>Password *</Text>
           <TextInput style={s.input} value={form.password} onChangeText={set('password')} secureTextEntry placeholderTextColor={C.subtle} placeholder="At least 8 characters" />
+
+          {/* Optional referral code — collapsed by default to keep the form short */}
+          <TouchableOpacity onPress={() => setShowReferral(v => !v)} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name={showReferral ? 'chevron-up' : 'chevron-down'} size={16} color={C.bronze} />
+            <Text style={{ marginLeft: 6, color: C.bronze, fontSize: 13, fontWeight: '600' }}>
+              {showReferral ? 'Hide referral code' : 'Have a referral code?'}
+            </Text>
+          </TouchableOpacity>
+          {showReferral && (
+            <>
+              <Text style={[s.label, { marginTop: 10 }]}>Referral code</Text>
+              <TextInput
+                style={s.input}
+                value={form.referralCode}
+                onChangeText={set('referralCode')}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholderTextColor={C.subtle}
+                placeholder={isMerchant ? 'SHOP-A1B2' : 'RIDER-A1B2'}
+              />
+            </>
+          )}
 
           <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
             {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{isMerchant ? 'Create merchant account' : 'Create driver account'}</Text>}

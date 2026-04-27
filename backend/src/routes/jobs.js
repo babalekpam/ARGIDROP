@@ -7,6 +7,7 @@ const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
 const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, payments, zones, messages } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { validatePromo, recordRedemption } = require('../services/promo');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
 const { holdFunds, returnHold } = require('../services/wallet');
@@ -40,6 +41,7 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       paymentProvider,        // 'FLUTTERWAVE' | 'PAYSTACK' | ...
       paymentPhone,
       currency: requestCurrency,
+      promoCode,              // optional marketing code → discount + optional driver bonus
       stops
     } = req.body;
 
@@ -49,6 +51,37 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
 
     const currency = requestCurrency || defaultCurrencyForCountry(business.country);
     const trackingToken = uuidv4().replace(/-/g, '').substring(0, 12).toUpperCase();
+
+    // ─── PROMO VALIDATION ───
+    // Resolve discount and driver bonus before any payment hold so that the
+    // amount we charge the merchant already reflects the promo. The full
+    // priceOffered is preserved on the job for audit + driver payout
+    // calculation; the platform absorbs the discount out of its commission.
+    const originalPrice = parseFloat(priceOffered);
+    let discountAmount = 0;
+    let driverBonusAmount = 0;
+    let validatedPromo = null;
+    if (promoCode) {
+      const [me] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+      const existingForBiz = await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.businessId, business.id)).limit(1);
+      const isFirstJob = existingForBiz.length === 0;
+      const promoCheck = await validatePromo({
+        code: promoCode,
+        role: 'BUSINESS',
+        marketCode: me?.marketCode,
+        jobAmount: originalPrice,
+        userId: req.user.id,
+        isFirstJob,
+      });
+      if (!promoCheck.valid) {
+        return res.status(400).json({ success: false, code: 'INVALID_PROMO', message: promoCheck.reason });
+      }
+      validatedPromo = promoCheck.promo;
+      discountAmount = promoCheck.discount;
+      driverBonusAmount = promoCheck.driverBonus || 0;
+    }
+    // What the merchant actually pays (held / charged).
+    const chargedAmount = Math.max(0, +(originalPrice - discountAmount).toFixed(2));
 
     // Find zone for commission calculation
     let zoneId = null;
@@ -67,6 +100,9 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       packageType, packageDescription, weightKg, isFragile: !!isFragile,
       declaredValue, urgency: urgency || 'STANDARD',
       vehicleTypeRequired, priceOffered, currency,
+      appliedPromoCode: validatedPromo?.code || null,
+      discountAmount: String(discountAmount),
+      driverBonusAmount: String(driverBonusAmount),
       status: 'DRAFT',
       paymentCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min to pay
       zoneId
@@ -76,27 +112,56 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       await db.insert(jobStops).values(stops.map((s, i) => ({ jobId: job.id, ...s, sequenceOrder: i + 1 })));
     }
 
+    // ─── ATOMIC PROMO REDEMPTION ───
+    // Reserve the promo slot BEFORE any wallet hold or payment init so a
+    // race that loses the cap doesn't leave a discounted job pending. If
+    // this throws PROMO_CAP_EXCEEDED / PROMO_PER_USER_EXCEEDED we abort the
+    // job creation cleanly.
+    if (validatedPromo) {
+      try {
+        await recordRedemption({
+          promoCodeId: validatedPromo.id,
+          userId: req.user.id,
+          jobId: job.id,
+          discountApplied: discountAmount,
+          driverBonusApplied: driverBonusAmount,
+          currency,
+        });
+      } catch (redeemErr) {
+        await db.update(jobs).set({ status: 'EXPIRED' }).where(eq(jobs.id, job.id));
+        const code = redeemErr.code || 'PROMO_REDEMPTION_FAILED';
+        const status = (code === 'PROMO_CAP_EXCEEDED' || code === 'PROMO_PER_USER_EXCEEDED') ? 409 : 400;
+        return res.status(status).json({ success: false, code, message: redeemErr.message });
+      }
+    }
+
     // ─── WALLET PATH ───
     if (paymentMethod === 'wallet') {
       let holdResult;
       try {
-        holdResult = await holdFunds(business.id, job.id, priceOffered);
+        // Hold the discounted amount (what the merchant is actually paying).
+        holdResult = await holdFunds(business.id, job.id, chargedAmount);
       } catch (holdErr) {
         await db.update(jobs).set({ status: 'EXPIRED' }).where(eq(jobs.id, job.id));
         return res.status(402).json({ success: false, code: 'INSUFFICIENT_FUNDS', message: 'Insufficient wallet balance. Top up your wallet or pay via mobile money.' });
       }
 
-      // Payment record
+      // Payment record. driverPayout uses the original price so the driver is
+      // never penalized for a promo. driverBonus is added on top. The
+      // commission therefore absorbs the discount + bonus (can go negative for
+      // a marketing-funded campaign — accepted on the books for MVP).
       const commissionRate = 18;
-      const gross = parseFloat(priceOffered);
-      const commission = gross * commissionRate / 100;
+      const driverPayout = +(originalPrice * (1 - commissionRate / 100) + driverBonusAmount).toFixed(2);
+      const commissionAmount = +(chargedAmount - driverPayout).toFixed(2);
       await db.insert(payments).values({
         jobId: job.id, businessId: business.id,
-        grossAmount: gross, commissionRate,
-        commissionAmount: commission, driverPayout: gross - commission,
+        grossAmount: chargedAmount, commissionRate,
+        commissionAmount, driverPayout,
         currency, status: 'HELD', heldAt: new Date(),
         paymentProvider: 'WALLET'
       });
+
+      // (Promo redemption already recorded atomically above.)
 
       // Straight to POSTED
       const now = new Date();
@@ -123,7 +188,7 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
     let paymentResult;
     try {
       paymentResult = await adapter.initiatePayment({
-        amount: priceOffered,
+        amount: chargedAmount,
         currency,
         customerPhone: paymentPhone || req.user.phone,
         customerEmail: req.user.email,
@@ -149,6 +214,10 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       width: 400, margin: 2, color: { dark: '#1B4332', light: '#FDFBF6' }
     });
 
+    // (Promo redemption already recorded atomically above. We accept that
+    // an abandoned momo payment "burns" the slot — that's the trade-off for
+    // closing the cap race; it's recoverable manually via admin if needed.)
+
     res.status(201).json({
       success: true,
       paymentMethod: 'momo',
@@ -158,7 +227,10 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
         reference,
         paymentUrl: paymentResult.paymentUrl,
         qrImage,
-        amount: priceOffered,
+        amount: chargedAmount,
+        originalAmount: originalPrice,
+        discountAmount,
+        promoCode: validatedPromo?.code || null,
         currency,
         expiresAt: job.paymentCodeExpiresAt
       },

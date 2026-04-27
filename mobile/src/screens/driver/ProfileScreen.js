@@ -108,6 +108,18 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Invite */}
+        <TouchableOpacity style={s.card} onPress={() => navigation.navigate('Invite')} activeOpacity={0.85}>
+          <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
+            <View style={{ flex:1, paddingRight:12 }}>
+              <Text style={s.sectionLabel}>Invite & earn</Text>
+              <Text style={{ fontSize:13, color:C.ink, marginTop:6, fontWeight:'500' }}>Bring another driver</Text>
+              <Text style={{ fontSize:12, color:C.muted, marginTop:3, lineHeight:17 }}>Earn a bonus paid with your next shift cash-out.</Text>
+            </View>
+            <Text style={{ fontSize:18, color:C.forest }}>›</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Account */}
         <View style={s.card}>
           <Text style={s.sectionLabel}>Account</Text>

@@ -48,6 +48,12 @@ const walletTxTypeEnum = pgEnum('wallet_tx_type', ['DEPOSIT', 'HOLD', 'RELEASE',
 const driverPayoutStatusEnum = pgEnum('driver_payout_status', ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED']);
 const driverPayoutTriggerEnum = pgEnum('driver_payout_trigger', ['END_SHIFT', 'NIGHTLY_AUTO', 'ADMIN_MANUAL']);
 
+// ─── M6 GROWTH ENGINE ENUMS ───
+const referralStatusEnum = pgEnum('referral_status', ['PENDING', 'QUALIFIED', 'PAID', 'VOID']);
+const promoStatusEnum = pgEnum('promo_status', ['ACTIVE', 'PAUSED', 'EXPIRED']);
+const promoDiscountTypeEnum = pgEnum('promo_discount_type', ['PERCENT', 'FIXED', 'FREE_DELIVERY']);
+const promoRoleScopeEnum = pgEnum('promo_role_scope', ['BUSINESS', 'DRIVER', 'BOTH']);
+
 // ─── USERS ───
 const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -64,6 +70,13 @@ const users = pgTable('users', {
   phoneVerified: boolean('phone_verified').default(false),
   country: text('country').default('TG'),
   language: text('language').default('fr'),
+  // Market routing — derived from city/country at signup, but explicit so we can
+  // query by market cheaply (e.g. "all Lagos drivers"). Nullable so legacy rows
+  // are valid; the app fills it in lazily on next login.
+  marketCode: text('market_code'),
+  // Referral attribution — the code this user signed up with (e.g. "KOSSI-A7B2").
+  // Used to credit the original referrer once the new user qualifies.
+  referredByCode: text('referred_by_code'),
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -216,17 +229,33 @@ const businessDocuments = pgTable('business_documents', {
 const zones = pgTable('zones', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  // Stable market identifier used by users.marketCode and promo scoping.
+  // Convention: COUNTRY-CITY3, e.g. TG-LME, NG-LOS, KE-NBO.
+  code: text('code').unique(),
   city: text('city').notNull(),
   country: text('country').notNull(),
   currency: text('currency').notNull(),
+  // IANA timezone (e.g. Africa/Lome). Used for time-windowed campaigns.
+  timezone: text('timezone').default('Africa/Lome'),
+  // Outbound WhatsApp number for transactional + marketing in this market.
+  whatsappNumber: text('whatsapp_number'),
   centerLat: decimal('center_lat', { precision: 10, scale: 7 }),
   centerLng: decimal('center_lng', { precision: 10, scale: 7 }),
   radiusKm: integer('radius_km').default(30),
   isActive: boolean('is_active').default(true),
+  launchedAt: timestamp('launched_at'),
   adminUserId: uuid('admin_user_id').references(() => users.id),
   surgeMultiplier: decimal('surge_multiplier', { precision: 3, scale: 2 }).default('1.00'),
   commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('18.00'),
   minimumDeliveryPrice: decimal('minimum_delivery_price', { precision: 10, scale: 2 }),
+  // Per-market referral economics — defaults are conservative XOF amounts.
+  // Driver reward credits to pendingEarnings; merchant reward becomes a
+  // single-use auto-promo applied to their next job.
+  referralRewardMerchant: decimal('referral_reward_merchant', { precision: 10, scale: 2 }).default('1500.00'),
+  referralRewardDriver: decimal('referral_reward_driver', { precision: 10, scale: 2 }).default('2500.00'),
+  // How many qualifying deliveries the referred user must complete before the
+  // referrer's reward is unlocked. Stops abuse via signup-only farms.
+  referralQualifyDeliveries: integer('referral_qualify_deliveries').default(1),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -271,6 +300,14 @@ const jobs = pgTable('jobs', {
   priceOffered: decimal('price_offered', { precision: 10, scale: 2 }).notNull(),
   finalPrice: decimal('final_price', { precision: 10, scale: 2 }),
   currency: text('currency').default('XOF'),
+  // Promo code applied at job creation (if any). Discount is platform-funded:
+  // the merchant pays priceOffered (already discounted), the driver still
+  // receives a payout based on the original/full delivery economics.
+  appliedPromoCode: text('applied_promo_code'),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0.00'),
+  // Per-job driver bonus paid by the platform (e.g. NIGHTSHIFT campaign).
+  // Added to the driver payout on top of the standard delivery price.
+  driverBonusAmount: decimal('driver_bonus_amount', { precision: 10, scale: 2 }).default('0.00'),
   insuranceAdded: boolean('insurance_added').default(false),
   insurancePremium: decimal('insurance_premium', { precision: 6, scale: 2 }),
 
@@ -597,16 +634,100 @@ const deliveryPricing = pgTable('delivery_pricing', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// ─── M6 GROWTH ENGINE TABLES ───
+// Personal share code per (user, role). One BUSINESS user has one BUSINESS code,
+// a DRIVER user has one DRIVER code. Drivers and merchants invite within their
+// own role pool — that's where the high-trust referral signal lives.
+const referralCodes = pgTable('referral_codes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  code: text('code').notNull().unique(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: userRoleEnum('role').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => ({
+  oneCodePerUserRole: uniqueIndex('referral_codes_user_role_unique').on(t.userId, t.role),
+}));
+
+// One row per redemption attempt. Lifecycle:
+//   PENDING   — referred user signed up with the code
+//   QUALIFIED — referred user completed required deliveries; reward unlocked
+//   PAID      — reward dispatched (driver pendingEarnings credited, merchant
+//               auto-promo seeded)
+//   VOID      — fraud / duplicate / referred user banned
+const referrals = pgTable('referrals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  codeUsed: text('code_used').notNull(),
+  referrerUserId: uuid('referrer_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  referredUserId: uuid('referred_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  referredRole: userRoleEnum('referred_role').notNull(),
+  marketCode: text('market_code'),
+  status: referralStatusEnum('status').default('PENDING'),
+  qualifyingJobsCount: integer('qualifying_jobs_count').default(0),
+  qualifiedAt: timestamp('qualified_at'),
+  paidAt: timestamp('paid_at'),
+  rewardAmount: decimal('reward_amount', { precision: 10, scale: 2 }),
+  currency: text('currency'),
+  voidReason: text('void_reason'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Marketing-issued discount/bonus campaign. `marketCode = NULL` means global
+// (rare; mostly used for partner deals). `appliesToRole = BOTH` means a
+// merchant can apply it for a discount AND drivers get the bonus on the
+// same job — the same row drives both sides.
+const promoCodes = pgTable('promo_codes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  code: text('code').notNull().unique(),
+  marketCode: text('market_code'),
+  appliesToRole: promoRoleScopeEnum('applies_to_role').default('BUSINESS'),
+  discountType: promoDiscountTypeEnum('discount_type').notNull(),
+  discountValue: decimal('discount_value', { precision: 10, scale: 2 }).notNull(),
+  // Capped maximum discount (only relevant for PERCENT type).
+  maxDiscount: decimal('max_discount', { precision: 10, scale: 2 }),
+  // Optional driver-side bonus — paid on top of normal payout for jobs that
+  // use this code. Independent of any merchant discount.
+  driverBonus: decimal('driver_bonus', { precision: 10, scale: 2 }).default('0.00'),
+  minJobAmount: decimal('min_job_amount', { precision: 10, scale: 2 }).default('0.00'),
+  maxRedemptions: integer('max_redemptions'),                  // total cap; null = unlimited
+  maxRedemptionsPerUser: integer('max_redemptions_per_user').default(1),
+  redemptionCount: integer('redemption_count').default(0),     // denormalized counter
+  validFrom: timestamp('valid_from').defaultNow(),
+  validUntil: timestamp('valid_until'),
+  firstJobOnly: boolean('first_job_only').default(false),
+  status: promoStatusEnum('status').default('ACTIVE'),
+  // Description shown to users when a code is invalid/active.
+  description: text('description'),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// One row per (promo, job). The unique index prevents the same promo being
+// double-counted on a single job, regardless of retries.
+const promoRedemptions = pgTable('promo_redemptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  promoCodeId: uuid('promo_code_id').references(() => promoCodes.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'cascade' }).notNull(),
+  discountApplied: decimal('discount_applied', { precision: 10, scale: 2 }).notNull(),
+  driverBonusApplied: decimal('driver_bonus_applied', { precision: 10, scale: 2 }).default('0.00'),
+  currency: text('currency'),
+  redeemedAt: timestamp('redeemed_at').defaultNow(),
+}, (t) => ({
+  oneRedemptionPerJob: uniqueIndex('promo_redemptions_promo_job_unique').on(t.promoCodeId, t.jobId),
+}));
+
 module.exports = {
   userRoleEnum, userStatusEnum, verificationStatusEnum, vehicleTypeEnum,
   jobStatusEnum, jobUrgencyEnum, bidStatusEnum, paymentStatusEnum,
   paymentProviderEnum, docTypeEnum, disputeStatusEnum, scanTypeEnum,
   walletTxTypeEnum, merchantTierEnum, listingStatusEnum, listingTypeEnum,
   driverPayoutStatusEnum, driverPayoutTriggerEnum,
+  referralStatusEnum, promoStatusEnum, promoDiscountTypeEnum, promoRoleScopeEnum,
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
   jobs, qrScanEvents, jobBids, jobStops, driverLocations,
   payments, ratings, messages, notifications, disputes, platformSettings,
   driverPayouts,
-  merchantSubscriptions, merchantListings, listingPhotos, merchantProfiles, deliveryPricing
+  merchantSubscriptions, merchantListings, listingPhotos, merchantProfiles, deliveryPricing,
+  referralCodes, referrals, promoCodes, promoRedemptions,
 };
