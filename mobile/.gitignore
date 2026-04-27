@@ -3,3 +3,7 @@ node_modules/
 .expo/
 dist/
 *.log
+
+# iOS submit secrets (materialized at submit-time, never commit)
+credentials/
+*.p8
