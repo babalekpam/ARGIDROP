@@ -1,0 +1,42 @@
+All Identifiers
+Register a new identifier
+Continue
+
+App IDs
+Register an App ID to enable your app, app extensions, or App Clip to access available services and identify your app in a provisioning profile. You can enable app services when you create an App ID or modify these settings later.
+
+
+Services IDs
+For each website that uses Sign in with Apple, register a services identifier (Services ID), configure your domain and return URL, and create an associated private key.
+
+
+Pass Type IDs
+Register a pass type identifier (Pass Type ID) for each kind of pass you create (i.e. gift cards). Registering your Pass Type IDs lets you generate Apple-issued certificates which are used to digitally sign and send updates to your passes, and allow your passes to be recognized by Wallet.
+
+
+Order Type IDs
+Register an order type identifier (Order Type ID) to support signing and distributing order bundles with Wallet and Apple Pay. Registering your order type ID lets you generate certificates to digitally sign and send updates to your orders in Wallet.
+
+
+Website Push IDs
+Register a Website Push Identifier (Website Push ID). Registering your Website Push IDs lets you generate Apple-issued certificates which are used to digitally sign and send push notifications from your website to macOS.
+
+
+iCloud Containers
+Registering your iCloud Container lets you use the iCloud Storage APIs to enable your apps to store data and documents in iCloud, keeping your apps up to date automatically.
+
+
+App Groups
+Registering your App Group allows access to group containers that are shared among multiple related apps, and allows certain additional interprocess communication between the apps.
+
+
+Merchant IDs
+Register your Merchant Identifiers (Merchant IDs) to enable your apps and websites to process transactions for physical goods and services. Generate an Apple Pay Payment Processing certificate for each registered Merchant ID to validate transactions initiated within your app and/or website.
+
+
+Media IDs
+Register a media identifier (Media ID) for each app that uses the Apple Music API, ShazamKit or Apple Music Feed. Then create an associated private key.
+
+
+Maps IDs
+For each website that uses MapKit JS, register a Maps identifier (Maps ID) then create an associated private key.
