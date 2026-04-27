@@ -44,6 +44,8 @@ import Zones from './pages/admin/Zones';
 import LandingPage from './pages/Landing';
 import TrackingPage from './pages/Track';
 import RecipientTracking from './pages/RecipientTracking';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth();
@@ -71,6 +73,8 @@ export default function App() {
           <Route path="/track/:token" element={<TrackingPage />} />
           <Route path="/r/:deliveryCode" element={<RecipientTracking />} />
           <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
           {/* Business standalone screens */}
           <Route path="/pay/:id" element={<ProtectedRoute role="BUSINESS"><PaymentQR /></ProtectedRoute>} />

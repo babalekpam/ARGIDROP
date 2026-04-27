@@ -6,3 +6,21 @@ id = "xteEWwzaWLJRUVga1jQUX"
 uri = "file://web/public/og-image.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "sgWkZTh4enSl3mbjPFM8Y"
+uri = "file://mobile/assets/icon.png"
+type = "image"
+title = "argidrop app icon"
+
+[[generated]]
+id = "nukH3iPYO48eRCBwXovi2"
+uri = "file://mobile/assets/adaptive-icon.png"
+type = "image"
+title = "argidrop adaptive icon"
+
+[[generated]]
+id = "KByFrmU0ncqUCUdFmrzcN"
+uri = "file://mobile/assets/splash.png"
+type = "image"
+title = "argidrop splash screen"

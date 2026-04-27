@@ -1,11 +1,13 @@
 {
   "expo": {
-    "name": "ArgiDrop Driver",
-    "slug": "argidrop-driver",
+    "name": "ArgiDrop",
+    "slug": "argidrop",
+    "scheme": "argidrop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "primaryColor": "#1B4332",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -15,10 +17,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.argilette.argidrop.driver",
+      "associatedDomains": ["applinks:argidrop.com", "applinks:www.argidrop.com"],
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs.",
-        "NSCameraUsageDescription": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery."
+        "NSLocationWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs and share your live position with merchants during active deliveries.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "ArgiDrop tracks your location during active shifts so merchants and recipients can see live delivery progress, even when the app is in the background.",
+        "NSCameraUsageDescription": "ArgiDrop uses the camera to scan delivery QR codes and capture proof-of-delivery photos.",
+        "NSPhotoLibraryUsageDescription": "ArgiDrop lets you upload KYC documents and proof-of-delivery photos from your library.",
+        "NSPhotoLibraryAddUsageDescription": "ArgiDrop saves delivery receipts to your library when you tap save.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -34,7 +40,21 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "argidrop.com", "pathPrefix": "/jobs" },
+            { "scheme": "https", "host": "argidrop.com", "pathPrefix": "/track" },
+            { "scheme": "https", "host": "www.argidrop.com", "pathPrefix": "/jobs" },
+            { "scheme": "https", "host": "www.argidrop.com", "pathPrefix": "/track" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {
@@ -47,7 +67,7 @@
       ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#1B4332" }]
     ],
     "extra": {
-      "maptilerKey": "set EXPO_PUBLIC_MAPTILER_KEY in env or fill here for production builds"
+      "maptilerKey": null
     }
   }
 }

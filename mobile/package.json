@@ -5,7 +5,20 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "eas:login": "npx --yes eas-cli@latest login",
+    "eas:whoami": "npx --yes eas-cli@latest whoami",
+    "eas:init": "npx --yes eas-cli@latest init",
+    "eas:secret:maptiler": "npx --yes eas-cli@latest secret:create --scope project --name EXPO_PUBLIC_MAPTILER_KEY --type string",
+    "eas:device:create": "npx --yes eas-cli@latest device:create",
+    "build:preview:android": "npx --yes eas-cli@latest build --platform android --profile preview",
+    "build:preview:ios": "npx --yes eas-cli@latest build --platform ios --profile preview",
+    "build:preview:all": "npx --yes eas-cli@latest build --platform all --profile preview",
+    "build:prod:android": "npx --yes eas-cli@latest build --platform android --profile production",
+    "build:prod:ios": "npx --yes eas-cli@latest build --platform ios --profile production",
+    "build:prod:all": "npx --yes eas-cli@latest build --platform all --profile production",
+    "submit:android": "npx --yes eas-cli@latest submit --platform android --profile production --latest",
+    "submit:ios": "npx --yes eas-cli@latest submit --platform ios --profile production --latest"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.1.3",

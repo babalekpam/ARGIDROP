@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SocketProvider } from './src/context/SocketContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -89,20 +91,33 @@ function NotificationRouter() {
   return null;
 }
 
+const linking = {
+  prefixes: ['argidrop://', 'https://argidrop.com', 'https://www.argidrop.com'],
+  config: {
+    screens: {
+      JobDetail: 'jobs/:jobId',
+      Chat: 'chat/:jobId',
+      LiveTrack: 'track/:token',
+    },
+  },
+};
+
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <SocketProvider>
-            <NavigationContainer ref={navigationRef} theme={ArgiDropTheme}>
-              <StatusBar style="dark" />
-              <NotificationRouter />
-              <RootNavigator />
-            </NavigationContainer>
-          </SocketProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <NavigationContainer ref={navigationRef} theme={ArgiDropTheme} linking={Platform.OS === 'web' ? undefined : linking}>
+                <StatusBar style="dark" />
+                <NotificationRouter />
+                <RootNavigator />
+              </NavigationContainer>
+            </SocketProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
