@@ -2,6 +2,7 @@
   "expo": {
     "name": "ArgiDrop",
     "slug": "argidrop",
+    "owner": "argilette",
     "scheme": "argidrop",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,18 +14,24 @@
       "resizeMode": "contain",
       "backgroundColor": "#F7F3EB"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.argilette.argidrop.driver",
-      "associatedDomains": ["applinks:argidrop.com", "applinks:www.argidrop.com"],
+      "associatedDomains": [
+        "applinks:argidrop.com",
+        "applinks:www.argidrop.com"
+      ],
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "ArgiDrop needs your location to match you with nearby delivery jobs and share your live position with merchants during active deliveries.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "ArgiDrop tracks your location during active shifts so merchants and recipients can see live delivery progress, even when the app is in the background.",
-        "NSCameraUsageDescription": "ArgiDrop uses the camera to scan delivery QR codes and capture proof-of-delivery photos.",
+        "NSCameraUsageDescription": "ArgiDrop needs camera access to scan delivery QR codes.",
         "NSPhotoLibraryUsageDescription": "ArgiDrop lets you upload KYC documents and proof-of-delivery photos from your library.",
         "NSPhotoLibraryAddUsageDescription": "ArgiDrop saves delivery receipts to your library when you tap save.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
       }
     },
     "android": {
@@ -41,19 +48,42 @@
         "WRITE_EXTERNAL_STORAGE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "argidrop.com", "pathPrefix": "/jobs" },
-            { "scheme": "https", "host": "argidrop.com", "pathPrefix": "/track" },
-            { "scheme": "https", "host": "www.argidrop.com", "pathPrefix": "/jobs" },
-            { "scheme": "https", "host": "www.argidrop.com", "pathPrefix": "/track" }
+            {
+              "scheme": "https",
+              "host": "argidrop.com",
+              "pathPrefix": "/jobs"
+            },
+            {
+              "scheme": "https",
+              "host": "argidrop.com",
+              "pathPrefix": "/track"
+            },
+            {
+              "scheme": "https",
+              "host": "www.argidrop.com",
+              "pathPrefix": "/jobs"
+            },
+            {
+              "scheme": "https",
+              "host": "www.argidrop.com",
+              "pathPrefix": "/track"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -61,13 +91,37 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "ArgiDrop needs your location to match you with nearby delivery jobs." }],
-      ["expo-camera", { "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery." }],
-      ["expo-barcode-scanner", { "cameraPermission": "ArgiDrop needs camera access to scan delivery QR codes." }],
-      ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#1B4332" }]
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "ArgiDrop needs your location to match you with nearby delivery jobs."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery."
+        }
+      ],
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "ArgiDrop needs camera access to scan delivery QR codes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1B4332"
+        }
+      ]
     ],
     "extra": {
-      "maptilerKey": null
+      "maptilerKey": {},
+      "eas": {
+        "projectId": "dcc37e84-6bea-4779-8213-e282b40d1716"
+      }
     }
   }
 }
