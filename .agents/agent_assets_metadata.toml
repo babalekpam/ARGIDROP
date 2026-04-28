@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "xteEWwzaWLJRUVga1jQUX"
@@ -24,3 +23,15 @@ id = "KByFrmU0ncqUCUdFmrzcN"
 uri = "file://mobile/assets/splash.png"
 type = "image"
 title = "argidrop splash screen"
+
+[[generated]]
+id = "z0buMcQ7atDeIQ9EPvH9t"
+uri = "file://attached_assets/generated_images/argidrop_feature_graphic_raw.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "wy7R5xTBqTlXPHdCnHIqN"
+uri = "file://attached_assets/argidrop_feature_graphic_1024x500.png"
+type = "image"
+title = "ArgiDrop Feature Graphic — 1024×500"
