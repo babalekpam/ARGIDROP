@@ -30,8 +30,80 @@ uri = "file://attached_assets/generated_images/argidrop_feature_graphic_raw.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "X6Wp9u88JsieTsSHjFnZd"
+uri = "file://attached_assets/play_screenshot_1_order.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "m9GwAxY1zvDpuX_tzY0gt"
+uri = "file://attached_assets/play_screenshot_2_tracking.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "79jf8-0TPiagUh64cEQXM"
+uri = "file://attached_assets/play_screenshot_3_earnings.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "6JerTXydG1RmM-wwkgnOO"
+uri = "file://attached_assets/play_screenshot_4_wallet.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ojKaHkuIjVARfPVmGVaHd"
+uri = "file://attached_assets/phone_mockup_1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "WgKNa2vQjUzDiuMoby_ID"
+uri = "file://attached_assets/phone_mockup_2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "PW4BgZpja8D3rIpA-WZbU"
+uri = "file://attached_assets/phone_mockup_3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "dBPg5fqHzpnWer4waVjFb"
+uri = "file://attached_assets/phone_mockup_4.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "wy7R5xTBqTlXPHdCnHIqN"
 uri = "file://attached_assets/argidrop_feature_graphic_1024x500.png"
 type = "image"
 title = "ArgiDrop Feature Graphic — 1024×500"
+
+[[outputs]]
+id = "cMnJTWqe32Hz6Owm3N9FB"
+uri = "file://attached_assets/play_screenshot_1_order.png"
+type = "image"
+title = "Phone screenshot 1 — Commander une livraison"
+
+[[outputs]]
+id = "zNJ2KSlqIuFnL7y97quoB"
+uri = "file://attached_assets/play_screenshot_2_tracking.png"
+type = "image"
+title = "Phone screenshot 2 — Suivi en temps réel"
+
+[[outputs]]
+id = "_hWVUc1J1mbGvOAy0E155"
+uri = "file://attached_assets/play_screenshot_3_earnings.png"
+type = "image"
+title = "Phone screenshot 3 — Revenus chauffeur"
+
+[[outputs]]
+id = "CUmjAEKWVk41BQj6OavJV"
+uri = "file://attached_assets/play_screenshot_4_wallet.png"
+type = "image"
+title = "Phone screenshot 4 — Portefeuille"
