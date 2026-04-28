@@ -18,7 +18,9 @@
     "build:prod:ios": "npx --yes eas-cli@latest build --platform ios --profile production",
     "build:prod:all": "npx --yes eas-cli@latest build --platform all --profile production",
     "submit:android": "npx --yes eas-cli@latest submit --platform android --profile production --latest",
-    "submit:ios": "npx --yes eas-cli@latest submit --platform ios --profile production --latest"
+    "submit:ios": "npx --yes eas-cli@latest submit --platform ios --profile production --latest",
+    "ship:ios": "bash scripts/build-ios.sh",
+    "ship:android": "bash scripts/build-android.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.1.3",
