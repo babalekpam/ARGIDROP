@@ -131,3 +131,33 @@ id = "vcxnnghjGQ4NQ1BCYpcVY"
 uri = "file://attached_assets/play_store/screen_4_login_fr.png"
 type = "image"
 title = "Play Store 4 — Sécurité"
+
+[[outputs]]
+id = "oIyqU_hO_SuQC6hfJAbXN"
+uri = "file://attached_assets/play_store/argidrop_play_store_fr.zip"
+type = "unspecified"
+title = "ArgiDrop Play Store FR — 4 JPEG screenshots (zip)"
+
+[[outputs]]
+id = "fiULZdDgfmHI-zY28KLX-"
+uri = "file://attached_assets/play_store/screen_1_welcome_fr.jpg"
+type = "image"
+title = "1 — Bienvenue (JPEG)"
+
+[[outputs]]
+id = "6ziQIqUjEQlaLSfvMilu9"
+uri = "file://attached_assets/play_store/screen_2_merchant_fr.jpg"
+type = "image"
+title = "2 — Marchand (JPEG)"
+
+[[outputs]]
+id = "fcj-7p9DFKOrg7pClC5fc"
+uri = "file://attached_assets/play_store/screen_3_driver_fr.jpg"
+type = "image"
+title = "3 — Livreur (JPEG)"
+
+[[outputs]]
+id = "sq143fbMqxU7yeYkU4jo7"
+uri = "file://attached_assets/play_store/screen_4_login_fr.jpg"
+type = "image"
+title = "4 — Sécurité (JPEG)"
