@@ -1,7 +1,8 @@
 // QR Scanner — used for both Pickup scan and Delivery scan
+// Migrated to expo-camera 16 CameraView (SDK 52) — expo-barcode-scanner is removed.
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { CameraView, Camera } from 'expo-camera';
 import * as Location from 'expo-location';
 import api from '../../utils/api';
 
@@ -15,7 +16,7 @@ export default function ScanQRScreen({ route, navigation }) {
 
   useEffect(() => {
     (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
     })();
   }, []);
@@ -47,7 +48,6 @@ export default function ScanQRScreen({ route, navigation }) {
           { text: 'Continue', onPress: () => navigation.replace('ActiveDelivery', { jobId }) }
         ]);
       } else {
-        // Delivery confirmed → ask for proof photo (optional but encouraged), then rate
         Alert.alert('✓ Delivery confirmed', 'Payment released. Add a proof photo so the customer has a record.', [
           { text: 'Skip', style: 'cancel', onPress: () => navigation.replace('RateDelivery', { jobId }) },
           { text: 'Add photo', onPress: () => navigation.replace('ProofOfDelivery', { jobId }) }
@@ -74,7 +74,11 @@ export default function ScanQRScreen({ route, navigation }) {
 
   return (
     <View style={s.container}>
-      <BarCodeScanner onBarCodeScanned={scanned ? undefined : handleBarCodeScanned} style={StyleSheet.absoluteFillObject} />
+      <CameraView
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
       <View style={s.overlay}>
         <View style={s.header}>

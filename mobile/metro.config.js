@@ -8,7 +8,6 @@ const webStubs = {
   'expo-secure-store': path.resolve(__dirname, 'web-stubs/expo-secure-store.js'),
   'react-native-webview': path.resolve(__dirname, 'web-stubs/react-native-webview.js'),
   'expo-camera': path.resolve(__dirname, 'web-stubs/expo-camera.js'),
-  'expo-barcode-scanner': path.resolve(__dirname, 'web-stubs/expo-barcode-scanner.js'),
 };
 
 const originalResolveRequest = config.resolver.resolveRequest;

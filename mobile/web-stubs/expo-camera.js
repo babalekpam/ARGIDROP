@@ -1,7 +1,7 @@
 const React = require('react');
 const { View, Text } = require('react-native');
 
-const Camera = React.forwardRef((props, ref) => {
+const placeholder = (label) => React.forwardRef((props, ref) => {
   React.useImperativeHandle(ref, () => ({
     takePictureAsync: async () => null,
     recordAsync: async () => null,
@@ -10,9 +10,12 @@ const Camera = React.forwardRef((props, ref) => {
   return React.createElement(
     View,
     { style: [{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1A1A1A' }, props.style] },
-    React.createElement(Text, { style: { color: '#F7F3EB', padding: 16, textAlign: 'center' } }, '[ Camera — native only ]')
+    React.createElement(Text, { style: { color: '#F7F3EB', padding: 16, textAlign: 'center' } }, label)
   );
 });
+
+const Camera = placeholder('[ Camera — native only ]');
+const CameraView = placeholder('[ Camera — native only ]');
 
 const noopAsync = async () => ({ status: 'denied', granted: false, canAskAgain: false });
 Camera.requestCameraPermissionsAsync = noopAsync;
@@ -28,6 +31,7 @@ Camera.Constants = {
 
 module.exports = {
   Camera,
+  CameraView,
   CameraType: Camera.Constants.Type,
   FlashMode: Camera.Constants.FlashMode,
   AutoFocus: Camera.Constants.AutoFocus,

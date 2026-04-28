@@ -4,7 +4,7 @@
     "slug": "argidrop",
     "owner": "argilette",
     "scheme": "argidrop",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -44,8 +44,6 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "POST_NOTIFICATIONS",
@@ -85,6 +83,14 @@
             "DEFAULT"
           ]
         }
+      ],
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -101,12 +107,6 @@
         "expo-camera",
         {
           "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery."
-        }
-      ],
-      [
-        "expo-barcode-scanner",
-        {
-          "cameraPermission": "ArgiDrop needs camera access to scan delivery QR codes."
         }
       ],
       [
