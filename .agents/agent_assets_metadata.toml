@@ -107,3 +107,27 @@ id = "CUmjAEKWVk41BQj6OavJV"
 uri = "file://attached_assets/play_screenshot_4_wallet.png"
 type = "image"
 title = "Phone screenshot 4 — Portefeuille"
+
+[[outputs]]
+id = "PsRm7Mek0FdIdoRSR9Y2N"
+uri = "file://attached_assets/play_store/screen_1_welcome_fr.png"
+type = "image"
+title = "Play Store 1 — Bienvenue"
+
+[[outputs]]
+id = "3XgKBmb7JN0QJcJOC9ATZ"
+uri = "file://attached_assets/play_store/screen_2_merchant_fr.png"
+type = "image"
+title = "Play Store 2 — Marchand"
+
+[[outputs]]
+id = "gkS9mGL-ioJslxBBinFng"
+uri = "file://attached_assets/play_store/screen_3_driver_fr.png"
+type = "image"
+title = "Play Store 3 — Livreur"
+
+[[outputs]]
+id = "vcxnnghjGQ4NQ1BCYpcVY"
+uri = "file://attached_assets/play_store/screen_4_login_fr.png"
+type = "image"
+title = "Play Store 4 — Sécurité"
