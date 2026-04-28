@@ -30,7 +30,7 @@ export default {
       chapter: 'Chapter',
       step1: { title: 'Scan & pay', desc: 'Post your delivery, scan the QR code with your mobile money app. Job activates the moment payment confirms.' },
       step2: { title: 'Driver verified at pickup', desc: 'Your assigned driver scans your Pickup QR on arrival. GPS-verified. No scan, no pickup.' },
-      step3: { title: 'Recipient confirms & payment releases', desc: 'Recipient shows their QR. Driver scans at dropoff. Payment releases instantly — 82% to driver, 18% to ArgiDrop.' },
+      step3: { title: 'Recipient confirms & payment releases', desc: 'Recipient shows their QR. Driver scans at dropoff. Payment releases instantly to the driver.' },
     },
     markets: {
       eyebrow: 'West Africa first',
@@ -42,7 +42,7 @@ export default {
     driverCta: {
       eyebrow: 'Drivers',
       title: 'Earn with every delivery',
-      desc: 'Keep 82% of every delivery. Get paid instantly to your mobile money account. Work when you want.',
+      desc: 'Get paid instantly to your mobile money account on every delivery. Work when you want.',
       button: 'Register as driver →',
     },
     footer: {

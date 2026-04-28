@@ -30,7 +30,7 @@ export default {
       chapter: 'Chapitre',
       step1: { title: 'Scanner & payer', desc: 'Postez votre livraison, scannez le QR code avec votre application mobile money. Le job s\'active dès la confirmation du paiement.' },
       step2: { title: 'Livreur vérifié au ramassage', desc: 'Le livreur assigné scanne votre QR de ramassage à l\'arrivée. Vérifié par GPS. Pas de scan, pas de ramassage.' },
-      step3: { title: 'Le destinataire confirme et le paiement est libéré', desc: 'Le destinataire montre son QR. Le livreur le scanne à la livraison. Le paiement est libéré instantanément — 82 % au livreur, 18 % à ArgiDrop.' },
+      step3: { title: 'Le destinataire confirme et le paiement est libéré', desc: 'Le destinataire montre son QR. Le livreur le scanne à la livraison. Le paiement est libéré instantanément au livreur.' },
     },
     markets: {
       eyebrow: 'L\'Afrique de l\'Ouest d\'abord',
@@ -42,7 +42,7 @@ export default {
     driverCta: {
       eyebrow: 'Livreurs',
       title: 'Gagnez à chaque livraison',
-      desc: 'Gardez 82 % de chaque livraison. Soyez payé instantanément sur votre compte mobile money. Travaillez quand vous voulez.',
+      desc: 'Soyez payé instantanément sur votre compte mobile money à chaque livraison. Travaillez quand vous voulez.',
       button: 'S\'inscrire comme livreur →',
     },
     footer: {
