@@ -46,6 +46,7 @@ import TrackingPage from './pages/Track';
 import RecipientTracking from './pages/RecipientTracking';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import AccountDeletion from './pages/AccountDeletion';
 
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth();
@@ -75,6 +76,8 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/account-deletion" element={<AccountDeletion />} />
+          <Route path="/data-deletion" element={<AccountDeletion />} />
 
           {/* Business standalone screens */}
           <Route path="/pay/:id" element={<ProtectedRoute role="BUSINESS"><PaymentQR /></ProtectedRoute>} />

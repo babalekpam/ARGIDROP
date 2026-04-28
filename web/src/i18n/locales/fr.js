@@ -50,6 +50,7 @@ export default {
       copyright: '© 2026 ARGILETTE LLC. Tous droits réservés.',
       privacy: 'Confidentialité',
       terms: 'Conditions',
+      accountDeletion: 'Supprimer mon compte',
     },
   },
   auth: {
@@ -217,6 +218,54 @@ export default {
         ] },
         { h: '12. Nous contacter', p: [
           'Pour toute question sur la confidentialité ou pour exercer vos droits, contactez privacy@argidrop.com. Pour le support général, contactez support@argidrop.com.',
+        ] },
+      ],
+    },
+    accountDeletion: {
+      title: 'Suppression de compte et de données',
+      lead: 'Vous pouvez supprimer votre compte ArgiDrop et les données personnelles associées à tout moment. Cette page explique comment procéder, ce qui est supprimé immédiatement et ce que la loi nous oblige à conserver pendant un certain temps.',
+      contactTitle: 'Demande par e-mail',
+      contactNote: 'Écrivez depuis l\'adresse e-mail liée à votre compte ArgiDrop avec l\'objet « Suppression de compte ». Nous accusons réception sous 72 heures et finalisons la suppression sous 30 jours.',
+      sections: [
+        { h: '1. Application concernée', p: [
+          'Cette procédure s\'applique à l\'application mobile ArgiDrop (éditeur : ARGILETTE LLC, package Android com.argilette.argidrop.driver, identifiant iOS com.argilette.argidrop.driver) et à toutes les données associées au compte du même utilisateur sur la plateforme web argidrop.com.',
+        ] },
+        { h: '2. Supprimer depuis l\'application mobile', list: [
+          'Ouvrez l\'application ArgiDrop sur votre téléphone.',
+          'Allez dans Paramètres → Compte.',
+          'Appuyez sur « Supprimer mon compte ».',
+          'Confirmez avec votre mot de passe ou code PIN.',
+          'Vous recevez un e-mail de confirmation. La suppression est finalisée sous 30 jours.',
+        ] },
+        { h: '3. Supprimer par e-mail (alternative)', p: [
+          'Si vous n\'avez plus accès à l\'application, écrivez à privacy@argidrop.com depuis l\'adresse e-mail enregistrée sur votre compte. Indiquez « Suppression de compte » en objet et précisez votre numéro de téléphone enregistré pour vérification d\'identité.',
+          'Nous accusons réception sous 72 heures et confirmons la suppression sous 30 jours, sauf demande légale ou réglementaire en cours.',
+        ] },
+        { h: '4. Ce qui est supprimé immédiatement', list: [
+          'Profil utilisateur : nom, photo de profil, mot de passe, code PIN.',
+          'Coordonnées : numéro de téléphone, e-mail, adresse postale.',
+          'Préférences et paramètres in-app.',
+          'Jeton de notifications push : vous ne recevrez plus aucune notification d\'ArgiDrop.',
+          'Historique de chat lié aux livraisons clôturées (sous 30 jours).',
+          'Pings de localisation bruts de moins de 90 jours associés à votre compte.',
+        ] },
+        { h: '5. Ce qui est conservé (et pendant combien de temps)', p: [
+          'Certaines données doivent être conservées pour respecter nos obligations légales, fiscales, comptables et anti-fraude dans la zone CEDEAO. Vous ne pouvez plus y accéder, mais elles restent dans nos archives sécurisées :',
+        ], list: [
+          'Documents KYC (pièce d\'identité, selfie de vérification, licence commerciale) : conservés 7 ans après la fermeture du compte (réglementation anti-blanchiment).',
+          'Enregistrements de livraisons effectuées (adresses, montants, horodatages, preuves de livraison) : conservés 7 ans pour fiscalité, audit et résolution de litiges.',
+          'Reçus et historique des reversements mobile money : conservés 7 ans.',
+          'Tickets de support et correspondance liée à des litiges : conservés 5 ans.',
+          'Journaux techniques anonymisés (sans identifiant personnel) : conservés 12 mois pour sécurité et débogage.',
+        ] },
+        { h: '6. Effets sur les livraisons en cours', p: [
+          'Si vous avez des livraisons en cours (acceptées, ramassées, en route), la suppression est mise en file d\'attente jusqu\'à leur clôture. Si vous êtes livreur avec des reversements en attente, le solde vous est versé sur votre compte mobile money enregistré avant la suppression.',
+        ] },
+        { h: '7. Ré-inscription', p: [
+          'Après suppression, vous pouvez créer un nouveau compte ArgiDrop avec le même e-mail ou numéro de téléphone. Toutefois, si votre compte a été suspendu pour fraude ou violation des conditions, une ré-inscription peut être refusée et la conservation des données KYC pour la période réglementaire reste de mise.',
+        ] },
+        { h: '8. Vos autres droits', p: [
+          'En plus de la suppression, vous avez le droit d\'accéder à vos données, de les corriger, de les exporter dans un format lisible et de vous opposer à certains traitements. Voir notre Politique de confidentialité pour le détail.',
         ] },
       ],
     },

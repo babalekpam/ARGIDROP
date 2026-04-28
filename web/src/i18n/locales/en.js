@@ -50,6 +50,7 @@ export default {
       copyright: '© 2026 ARGILETTE LLC. All rights reserved.',
       privacy: 'Privacy',
       terms: 'Terms',
+      accountDeletion: 'Delete my account',
     },
   },
   auth: {
@@ -217,6 +218,54 @@ export default {
         ] },
         { h: '12. Contact us', p: [
           'For privacy questions or to exercise your rights, contact privacy@argidrop.com. For general support, contact support@argidrop.com.',
+        ] },
+      ],
+    },
+    accountDeletion: {
+      title: 'Account & Data Deletion',
+      lead: 'You can delete your ArgiDrop account and associated personal data at any time. This page explains how to do it, what is deleted immediately, and what we are legally required to retain for a certain period.',
+      contactTitle: 'Email request',
+      contactNote: 'Write from the email address linked to your ArgiDrop account with the subject "Account deletion". We acknowledge within 72 hours and finalize deletion within 30 days.',
+      sections: [
+        { h: '1. Scope', p: [
+          'This procedure applies to the ArgiDrop mobile app (publisher: ARGILETTE LLC, Android package com.argilette.argidrop.driver, iOS bundle id com.argilette.argidrop.driver) and to all data associated with the same user account on the argidrop.com web platform.',
+        ] },
+        { h: '2. Delete from the mobile app', list: [
+          'Open the ArgiDrop app on your phone.',
+          'Go to Settings → Account.',
+          'Tap "Delete my account".',
+          'Confirm with your password or PIN.',
+          'You receive a confirmation email. Deletion is finalized within 30 days.',
+        ] },
+        { h: '3. Delete by email (alternative)', p: [
+          'If you no longer have access to the app, write to privacy@argidrop.com from the email address registered on your account. Use "Account deletion" as subject and include your registered phone number for identity verification.',
+          'We acknowledge within 72 hours and confirm deletion within 30 days, unless a pending legal or regulatory request applies.',
+        ] },
+        { h: '4. What is deleted immediately', list: [
+          'User profile: name, profile photo, password, PIN.',
+          'Contact details: phone number, email, mailing address.',
+          'In-app preferences and settings.',
+          'Push notification token: you will no longer receive any notifications from ArgiDrop.',
+          'Chat history tied to closed deliveries (within 30 days).',
+          'Raw location pings less than 90 days old associated with your account.',
+        ] },
+        { h: '5. What is retained (and for how long)', p: [
+          'Some data must be retained to comply with our legal, tax, accounting and anti-fraud obligations in the ECOWAS region. You can no longer access it, but it remains in our secure archives:',
+        ], list: [
+          'KYC documents (ID, verification selfie, business license): retained for 7 years after account closure (anti-money-laundering regulation).',
+          'Records of completed deliveries (addresses, amounts, timestamps, proof of delivery): retained for 7 years for tax, audit and dispute resolution.',
+          'Mobile money payout receipts and history: retained for 7 years.',
+          'Support tickets and correspondence related to disputes: retained for 5 years.',
+          'Anonymized technical logs (no personal identifier): retained for 12 months for security and debugging.',
+        ] },
+        { h: '6. Effect on deliveries in progress', p: [
+          'If you have deliveries in progress (accepted, picked up, in transit), deletion is queued until they close. If you are a driver with pending payouts, the balance is paid out to your registered mobile money account before deletion.',
+        ] },
+        { h: '7. Re-registration', p: [
+          'After deletion, you can create a new ArgiDrop account with the same email or phone number. However, if your account was suspended for fraud or terms violation, re-registration may be refused, and KYC data retention for the regulatory period still applies.',
+        ] },
+        { h: '8. Your other rights', p: [
+          'In addition to deletion, you have the right to access your data, correct it, export it in a machine-readable format, and object to certain processing. See our Privacy Policy for details.',
         ] },
       ],
     },

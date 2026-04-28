@@ -232,6 +232,7 @@ export default function Landing() {
         <div style={{ display:'flex', gap:18, alignItems:'center', fontSize:12, color:C.subtle }}>
           <Link to="/privacy" style={{ color:C.subtle, textDecoration:'none' }}>{t('landing.footer.privacy')}</Link>
           <Link to="/terms" style={{ color:C.subtle, textDecoration:'none' }}>{t('landing.footer.terms')}</Link>
+          <Link to="/account-deletion" style={{ color:C.subtle, textDecoration:'none' }}>{t('landing.footer.accountDeletion')}</Link>
           <span>{t('landing.footer.copyright')}</span>
         </div>
       </div>
