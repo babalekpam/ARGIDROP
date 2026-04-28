@@ -126,8 +126,6 @@
           ]
         }
       ],
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 35,
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
@@ -162,7 +160,17 @@
           "color": "#1B4332"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
     ],
     "extra": {
       "maptilerKey": {},
