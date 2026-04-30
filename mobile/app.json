@@ -22,8 +22,6 @@
       "bundleIdentifier": "com.argilette.argidrop.driver",
       "associatedDomains": [
         "applinks:argidrop.com",
-        "applinks:www.argidrop.com",
-        "applinks:argidrop.com",
         "applinks:www.argidrop.com"
       ],
       "infoPlist": {
@@ -32,8 +30,7 @@
         "NSCameraUsageDescription": "ArgiDrop needs camera access to scan delivery QR codes.",
         "NSPhotoLibraryUsageDescription": "ArgiDrop lets you upload KYC documents and proof-of-delivery photos from your library.",
         "NSPhotoLibraryAddUsageDescription": "ArgiDrop saves delivery receipts to your library when you tap save.",
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -150,7 +147,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery."
+          "cameraPermission": "ArgiDrop needs camera access to scan QR codes and capture proof of delivery.",
+          "microphonePermission": false
         }
       ],
       [
