@@ -48,6 +48,7 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import AccountDeletion from './pages/AccountDeletion';
 import Support from './pages/Support';
+import Download from './pages/Download';
 
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth();
@@ -82,6 +83,9 @@ export default function App() {
           <Route path="/support" element={<Support />} />
           <Route path="/aide" element={<Support />} />
           <Route path="/help" element={<Support />} />
+          <Route path="/download" element={<Download />} />
+          <Route path="/app" element={<Download />} />
+          <Route path="/get" element={<Download />} />
           <Route path="/contact" element={<Support />} />
 
           {/* Business standalone screens */}
