@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../context/AuthContext';
 import { t, getLang } from '../../utils/i18n';
 import api from '../../utils/api';
@@ -28,7 +29,16 @@ export default function SettingsPasswordScreen({ navigation }) {
     }
     setSaving(true);
     try {
-      await api.post('/auth/change-password', { currentPassword: current, newPassword: next });
+      const res = await api.post('/auth/change-password', { currentPassword: current, newPassword: next });
+      // Backend returns a fresh token pair tied to the new pwdAt; swap them in
+      // immediately so this device stays signed in (every other device will be
+      // logged out on its next request).
+      if (res.data?.tokens?.access) {
+        await SecureStore.setItemAsync('argidrop_token', res.data.tokens.access);
+      }
+      if (res.data?.tokens?.refresh) {
+        await SecureStore.setItemAsync('argidrop_refresh', res.data.tokens.refresh);
+      }
       Alert.alert(t('pwd.successTitle', lang), t('pwd.successBody', lang),
         [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (err) {

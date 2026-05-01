@@ -20,6 +20,11 @@ api.interceptors.response.use(
         try {
           const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken: refresh });
           await SecureStore.setItemAsync('argidrop_token', res.data.tokens.access);
+          // The backend now rotates the refresh token too (and embeds the
+          // current pwdAt claim into it), so persist whichever one came back.
+          if (res.data.tokens.refresh) {
+            await SecureStore.setItemAsync('argidrop_refresh', res.data.tokens.refresh);
+          }
           err.config.headers.Authorization = `Bearer ${res.data.tokens.access}`;
           return api(err.config);
         } catch {

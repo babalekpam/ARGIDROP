@@ -78,6 +78,12 @@ const users = pgTable('users', {
   // Used to credit the original referrer once the new user qualifies.
   referredByCode: text('referred_by_code'),
   lastLoginAt: timestamp('last_login_at'),
+  // Bumped whenever the password changes. Embedded into every JWT as the
+  // `pwdAt` claim (Unix seconds); the auth middleware rejects any token whose
+  // `pwdAt` is older than this column, which immediately logs out every other
+  // device after a password change. Nullable so legacy rows are valid; treated
+  // as 0 when null.
+  passwordChangedAt: timestamp('password_changed_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

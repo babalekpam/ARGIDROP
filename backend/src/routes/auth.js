@@ -72,7 +72,7 @@ router.post('/register', async (req, res, next) => {
       }
     }
 
-    const tokens = generateTokens(user.id, user.role);
+    const tokens = generateTokens(user.id, user.role, user.passwordChangedAt);
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
@@ -102,7 +102,7 @@ router.post('/login', async (req, res, next) => {
 
     const profile = await loadProfileWithDocs(db, user);
 
-    const tokens = generateTokens(user.id, user.role);
+    const tokens = generateTokens(user.id, user.role, user.passwordChangedAt);
     res.json({
       success: true,
       tokens,
@@ -248,9 +248,11 @@ router.patch('/me', authenticate, async (req, res, next) => {
 });
 
 /**
- * POST /change-password — verify the current password and set a new one.
- * Refresh tokens issued before this change remain valid until expiry; the client
- * may call /logout to invalidate the local copy.
+ * POST /change-password — verify the current password, set a new one, and bump
+ * `passwordChangedAt`. Bumping that column invalidates every JWT (access AND
+ * refresh) issued before this moment, so any other device the user was signed
+ * in on is logged out on its next request. The calling device receives a fresh
+ * token pair in the response so it stays signed in seamlessly.
  */
 router.post('/change-password', authenticate, async (req, res, next) => {
   try {
@@ -267,19 +269,36 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     const ok = await bcrypt.compare(currentPassword, u.passwordHash);
     if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
     const newHash = await bcrypt.hash(newPassword, 10);
-    await db.update(users).set({ passwordHash: newHash, updatedAt: new Date() }).where(eq(users.id, req.user.id));
-    res.json({ success: true, message: 'Password updated' });
+    const now = new Date();
+    await db.update(users)
+      .set({ passwordHash: newHash, passwordChangedAt: now, updatedAt: now })
+      .where(eq(users.id, req.user.id));
+    // Issue fresh tokens for THIS device that embed the new pwdAt, so the
+    // caller's next request isn't itself revoked.
+    const tokens = generateTokens(req.user.id, req.user.role, now);
+    res.json({ success: true, message: 'Password updated', tokens });
   } catch (err) { next(err); }
 });
 
-// POST /refresh
+// POST /refresh — re-issue an access token from a refresh token. We must also
+// re-check the user still exists, isn't banned, and that the refresh token
+// hasn't been invalidated by a subsequent password change.
 router.post('/refresh', async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) return res.status(400).json({ success: false, message: 'Refresh token required' });
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const tokens = generateTokens(decoded.userId, decoded.role);
+    const db = getDB();
+    const [u] = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);
+    if (!u) return res.status(401).json({ success: false, message: 'User not found' });
+    if (u.status === 'BANNED') return res.status(403).json({ success: false, message: 'Account banned' });
+    const { pwdAtSeconds } = require('../middleware/auth');
+    const tokenPwdAt = typeof decoded.pwdAt === 'number' ? decoded.pwdAt : 0;
+    if (tokenPwdAt < pwdAtSeconds(u.passwordChangedAt)) {
+      return res.status(401).json({ success: false, message: 'Session expired, please log in again' });
+    }
+    const tokens = generateTokens(u.id, u.role, u.passwordChangedAt);
     res.json({ success: true, tokens });
   } catch (err) {
     res.status(401).json({ success: false, message: 'Invalid refresh token' });

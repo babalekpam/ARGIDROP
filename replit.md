@@ -27,7 +27,7 @@ The merchant `MoreScreen` has a real backing screen for every row. Six dedicated
 
 Localization uses `mobile/src/utils/i18n.js` (`t(key, lang, vars)`); `getLang(user)` reads `user.language`. Switching language calls `PATCH /auth/me` then `refreshUser()`, which now propagates errors instead of silently swallowing them.
 
-Known follow-up: changing the password does NOT yet invalidate previously issued refresh tokens — they remain valid until expiry. A `passwordChangedAt` claim or token-version field should be added before public launch.
+Session revocation on password change is enforced via a `pwdAt` JWT claim. The `users.password_changed_at` column (added May 2026) is bumped by `POST /auth/change-password`, and both the auth middleware and `POST /auth/refresh` reject any token whose embedded `pwdAt` is older than the column. The change-password response returns a fresh access+refresh pair so the calling device stays signed in; every other device is logged out on its next request. Tokens issued before this feature shipped have no `pwdAt` claim and are treated as `pwdAt=0`, so they keep working until the user changes their password (then they're revoked along with everything else).
 
 ## External Dependencies
 
