@@ -29,12 +29,19 @@ export default function MerchantOnboardingScreen({ navigation }) {
   const set = k => v => setForm(p => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!form.companyName || !form.address || !form.city) {
-      return Alert.alert('Required fields', 'Business name, address, and city are required.');
+    const companyName = (form.companyName || '').trim();
+    const address = (form.address || '').trim();
+    const city = (form.city || '').trim();
+    const missing = [];
+    if (!companyName) missing.push('Business name');
+    if (!city) missing.push('City');
+    if (!address) missing.push('Address');
+    if (missing.length) {
+      return Alert.alert('Missing information', `Please fill in: ${missing.join(', ')}.`);
     }
     setLoading(true);
     try {
-      await api.patch('/businesses/profile', form);
+      await api.patch('/businesses/profile', { ...form, companyName, address, city });
       await refreshUser();
       navigation.replace('MerchantKYC');
     } catch (err) {
@@ -82,7 +89,7 @@ export default function MerchantOnboardingScreen({ navigation }) {
           )}
 
           <Text style={[s.label, { marginTop: 14 }]}>City *</Text>
-          <TextInput style={s.input} value={form.city} onChangeText={set('city')} placeholderTextColor={C.subtle} placeholder="Lomé" />
+          <TextInput style={s.input} value={form.city} onChangeText={set('city')} placeholderTextColor={C.subtle} placeholder="e.g. Lomé, Cotonou, Abidjan" />
 
           <Text style={[s.label, { marginTop: 14 }]}>Address *</Text>
           <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={set('address')} multiline placeholderTextColor={C.subtle} placeholder="Street, neighborhood, landmarks" />
