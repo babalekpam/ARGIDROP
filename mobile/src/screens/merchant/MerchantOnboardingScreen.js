@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Keyboa
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import { t, getLang } from '../../utils/i18n';
 
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9' };
 
@@ -16,6 +17,7 @@ const COUNTRIES = [
 
 export default function MerchantOnboardingScreen({ navigation }) {
   const { refreshUser, user } = useAuth();
+  const lang = getLang(user);
   const [form, setForm] = useState({
     companyName: user?.businessProfile?.companyName || '',
     taxId: '',
@@ -33,19 +35,19 @@ export default function MerchantOnboardingScreen({ navigation }) {
     const address = (form.address || '').trim();
     const city = (form.city || '').trim();
     const missing = [];
-    if (!companyName) missing.push('Business name');
-    if (!city) missing.push('City');
-    if (!address) missing.push('Address');
+    if (!companyName) missing.push(t('biz.field.companyName', lang).replace(' *', ''));
+    if (!city) missing.push(t('biz.field.city', lang).replace(' *', ''));
+    if (!address) missing.push(t('biz.field.address', lang).replace(' *', ''));
     if (missing.length) {
-      return Alert.alert('Missing information', `Please fill in: ${missing.join(', ')}.`);
+      return Alert.alert(t('biz.missingTitle', lang), t('biz.missingBody', lang, { fields: missing.join(', ') }));
     }
     setLoading(true);
     try {
-      await api.patch('/businesses/profile', { ...form, companyName, address, city });
+      await api.patch('/businesses/profile', { ...form, companyName, address, city, ein: form.taxId });
       await refreshUser();
       navigation.replace('MerchantKYC');
     } catch (err) {
-      Alert.alert('Save failed', err.response?.data?.message || 'Please try again.');
+      Alert.alert(t('biz.saveFailedTitle', lang), err.response?.data?.message || t('biz.saveFailedBody', lang));
     } finally {
       setLoading(false);
     }
@@ -58,24 +60,24 @@ export default function MerchantOnboardingScreen({ navigation }) {
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
         <View style={{ marginBottom: 24, marginTop: 36 }}>
           <Text style={s.brand}>ArgiDrop</Text>
-          <Text style={s.brandSub}>Business setup</Text>
-          <Text style={s.title}>Tell us about your business</Text>
-          <Text style={s.subtitle}>This goes on your delivery requests so drivers and recipients know who you are.</Text>
+          <Text style={s.brandSub}>{t('biz.setup.brandSub', lang)}</Text>
+          <Text style={s.title}>{t('biz.setup.title', lang)}</Text>
+          <Text style={s.subtitle}>{t('biz.setup.subtitle', lang)}</Text>
         </View>
 
         <View style={s.form}>
-          <Text style={s.label}>Business name *</Text>
-          <TextInput style={s.input} value={form.companyName} onChangeText={set('companyName')} autoCapitalize="words" placeholderTextColor={C.subtle} placeholder="Boutique Akossiwa" />
+          <Text style={s.label}>{t('biz.field.companyName', lang)}</Text>
+          <TextInput style={s.input} value={form.companyName} onChangeText={set('companyName')} autoCapitalize="words" placeholderTextColor={C.subtle} placeholder={t('biz.field.companyNamePh', lang)} />
 
-          <Text style={[s.label, { marginTop: 14 }]}>Business type</Text>
-          <TextInput style={s.input} value={form.businessType} onChangeText={set('businessType')} placeholderTextColor={C.subtle} placeholder="Retail, Restaurant, Pharmacy..." />
+          <Text style={[s.label, { marginTop: 14 }]}>{t('biz.field.businessType', lang)}</Text>
+          <TextInput style={s.input} value={form.businessType} onChangeText={set('businessType')} placeholderTextColor={C.subtle} placeholder={t('biz.field.businessTypePh', lang)} />
 
-          <Text style={[s.label, { marginTop: 14 }]}>Tax ID (optional)</Text>
-          <TextInput style={s.input} value={form.taxId} onChangeText={set('taxId')} placeholderTextColor={C.subtle} placeholder="TG12345678" />
+          <Text style={[s.label, { marginTop: 14 }]}>{t('biz.field.taxId', lang)}</Text>
+          <TextInput style={s.input} value={form.taxId} onChangeText={set('taxId')} placeholderTextColor={C.subtle} placeholder={t('biz.field.taxIdPh', lang)} />
 
-          <Text style={[s.label, { marginTop: 14 }]}>Country *</Text>
+          <Text style={[s.label, { marginTop: 14 }]}>{t('biz.field.country', lang)}</Text>
           <TouchableOpacity style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setShowCountryPicker(v => !v)}>
-            <Text style={{ color: C.ink, fontSize: 15 }}>{selectedCountry?.label || 'Select country'}</Text>
+            <Text style={{ color: C.ink, fontSize: 15 }}>{selectedCountry?.label || t('biz.field.countryPh', lang)}</Text>
             <Ionicons name={showCountryPicker ? 'chevron-up' : 'chevron-down'} size={18} color={C.muted} />
           </TouchableOpacity>
           {showCountryPicker && (
@@ -88,14 +90,14 @@ export default function MerchantOnboardingScreen({ navigation }) {
             </View>
           )}
 
-          <Text style={[s.label, { marginTop: 14 }]}>City *</Text>
-          <TextInput style={s.input} value={form.city} onChangeText={set('city')} placeholderTextColor={C.subtle} placeholder="e.g. Lomé, Cotonou, Abidjan" />
+          <Text style={[s.label, { marginTop: 14 }]}>{t('biz.field.city', lang)}</Text>
+          <TextInput style={s.input} value={form.city} onChangeText={set('city')} placeholderTextColor={C.subtle} placeholder={t('biz.field.cityPh', lang)} />
 
-          <Text style={[s.label, { marginTop: 14 }]}>Address *</Text>
-          <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={set('address')} multiline placeholderTextColor={C.subtle} placeholder="Street, neighborhood, landmarks" />
+          <Text style={[s.label, { marginTop: 14 }]}>{t('biz.field.address', lang)}</Text>
+          <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={set('address')} multiline placeholderTextColor={C.subtle} placeholder={t('biz.field.addressPh', lang)} />
 
           <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
-            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>Continue</Text>}
+            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{t('common.continue', lang)}</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>

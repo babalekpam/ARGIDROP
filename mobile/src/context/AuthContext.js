@@ -65,14 +65,12 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = async () => {
-    try {
-      const res = await api.get('/auth/me');
-      const fullUser = attachProfile(res.data.user, res.data.profile);
-      setUser(fullUser);
-      return fullUser;
-    } catch (e) {
-      console.error('refreshUser error:', e);
-    }
+    // Throws on failure so callers (e.g. SettingsLanguageScreen) can detect a
+    // stale state and surface an error instead of pretending success.
+    const res = await api.get('/auth/me');
+    const fullUser = attachProfile(res.data.user, res.data.profile);
+    setUser(fullUser);
+    return fullUser;
   };
 
   const logout = async () => {

@@ -107,12 +107,20 @@ router.get('/profile', authenticate, requireRole('BUSINESS'), async (req, res, n
   } catch (err) { next(err); }
 });
 
-// PATCH /profile
+// PATCH /profile — only updates the fields actually sent in the request body so
+// callers can do partial updates without overwriting unrelated columns to null.
 router.patch('/profile', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const { companyName, ein, businessType, website, address, city, state, country, zipCode, billingEmail } = req.body;
-    const [updated] = await db.update(businesses).set({ companyName, ein, businessType, website, address, city, state, country, zipCode, billingEmail, updatedAt: new Date() }).where(eq(businesses.userId, req.user.id)).returning();
+    const allowed = ['companyName', 'ein', 'businessType', 'website', 'address', 'city', 'state', 'country', 'zipCode', 'billingEmail'];
+    const update = { updatedAt: new Date() };
+    for (const k of allowed) {
+      if (req.body[k] !== undefined) {
+        const v = typeof req.body[k] === 'string' ? req.body[k].trim() : req.body[k];
+        update[k] = v === '' ? null : v;
+      }
+    }
+    const [updated] = await db.update(businesses).set(update).where(eq(businesses.userId, req.user.id)).returning();
     res.json({ success: true, business: updated });
   } catch (err) { next(err); }
 });

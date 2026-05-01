@@ -32,6 +32,12 @@ import PickupQRScreen from '../screens/merchant/PickupQRScreen';
 import LiveTrackScreen from '../screens/merchant/LiveTrackScreen';
 import RateDriverScreen from '../screens/merchant/RateDriverScreen';
 import MerchantJobDetailScreen from '../screens/merchant/JobDetailScreen';
+import SettingsLanguageScreen from '../screens/merchant/SettingsLanguageScreen';
+import SettingsSupportScreen from '../screens/merchant/SettingsSupportScreen';
+import SettingsPersonalScreen from '../screens/merchant/SettingsPersonalScreen';
+import SettingsPasswordScreen from '../screens/merchant/SettingsPasswordScreen';
+import SettingsBusinessScreen from '../screens/merchant/SettingsBusinessScreen';
+import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
 
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
@@ -114,6 +120,12 @@ export default function RootNavigator() {
           <Stack.Screen name="JobDetail" component={MerchantJobDetailScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Invite" component={InviteScreen} />
+          <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
+          <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />
+          <Stack.Screen name="SettingsPersonal" component={SettingsPersonalScreen} />
+          <Stack.Screen name="SettingsPassword" component={SettingsPasswordScreen} />
+          <Stack.Screen name="SettingsBusiness" component={SettingsBusinessScreen} />
+          <Stack.Screen name="SettingsRoadmap" component={SettingsRoadmapScreen} />
         </>
       ) : (
         <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />

@@ -206,6 +206,72 @@ router.get('/me', authenticate, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/**
+ * PATCH /me — update the user's own profile fields (name, phone, language).
+ * Email and role cannot be changed here. Phone uniqueness is enforced.
+ */
+router.patch('/me', authenticate, async (req, res, next) => {
+  try {
+    const db = getDB();
+    const allowed = ['firstName', 'lastName', 'phone', 'language', 'country'];
+    // firstName / lastName are NOT NULL in the schema, so we never allow them to
+    // be cleared via this endpoint — clearing returns 400 instead of crashing.
+    const required = new Set(['firstName', 'lastName']);
+    const update = { updatedAt: new Date() };
+    for (const k of allowed) {
+      if (req.body[k] === undefined || req.body[k] === null) continue;
+      const v = typeof req.body[k] === 'string' ? req.body[k].trim() : req.body[k];
+      if (k === 'language') {
+        if (v !== 'fr' && v !== 'en') {
+          return res.status(400).json({ success: false, message: 'Language must be "fr" or "en"' });
+        }
+        update[k] = v;
+        continue;
+      }
+      if (required.has(k) && !v) {
+        return res.status(400).json({ success: false, message: `${k} cannot be empty` });
+      }
+      if (k === 'phone' && v) {
+        const existing = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.phone, v), sql`${users.id} <> ${req.user.id}`)).limit(1);
+        if (existing.length) {
+          return res.status(409).json({ success: false, message: 'Phone number already in use' });
+        }
+      }
+      update[k] = v || null;
+    }
+    await db.update(users).set(update).where(eq(users.id, req.user.id));
+    const [fresh] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+    const { passwordHash, ...safeUser } = fresh;
+    res.json({ success: true, user: safeUser });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /change-password — verify the current password and set a new one.
+ * Refresh tokens issued before this change remain valid until expiry; the client
+ * may call /logout to invalidate the local copy.
+ */
+router.post('/change-password', authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+    const db = getDB();
+    const [u] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!u) return res.status(404).json({ success: false, message: 'User not found' });
+    const ok = await bcrypt.compare(currentPassword, u.passwordHash);
+    if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.update(users).set({ passwordHash: newHash, updatedAt: new Date() }).where(eq(users.id, req.user.id));
+    res.json({ success: true, message: 'Password updated' });
+  } catch (err) { next(err); }
+});
+
 // POST /refresh
 router.post('/refresh', async (req, res, next) => {
   try {
