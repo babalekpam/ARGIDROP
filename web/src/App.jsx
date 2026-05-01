@@ -47,6 +47,7 @@ import RecipientTracking from './pages/RecipientTracking';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import AccountDeletion from './pages/AccountDeletion';
+import Support from './pages/Support';
 
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth();
@@ -78,6 +79,10 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/account-deletion" element={<AccountDeletion />} />
           <Route path="/data-deletion" element={<AccountDeletion />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/aide" element={<Support />} />
+          <Route path="/help" element={<Support />} />
+          <Route path="/contact" element={<Support />} />
 
           {/* Business standalone screens */}
           <Route path="/pay/:id" element={<ProtectedRoute role="BUSINESS"><PaymentQR /></ProtectedRoute>} />
