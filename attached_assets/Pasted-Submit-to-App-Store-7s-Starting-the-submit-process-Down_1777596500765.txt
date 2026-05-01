@@ -1,0 +1,162 @@
+Submit to App Store
+
+7s
+
+
+Starting the submit process
+Downloading archive
+Preparing artifact
+Verifying archive
+Submitting iOS app to TestFlight...
+Submitting the app with fastlane pilot
+DEBUG [2026-04-30 17:42:59.59]: Checking if there are any plugins that should be loaded...
+DEBUG [2026-04-30 17:42:59.74]: Using ipa: /var/folders/m1/8_w9962s3b79dqm00nnlm85m0000gn/T/submissions/32b4e057-2741-4f9b-89da-25c466fe8624/fp434y1sfFaUgqDwBtdG42.ipa
+DEBUG [2026-04-30 17:42:59.74]: Using apple_id: 6764177430
+DEBUG [2026-04-30 17:42:59.74]: Using skip_waiting_for_build_processing: true
+INFO [2026-04-30 17:42:59.75]: -------------------
+INFO [2026-04-30 17:42:59.75]: --- Step: pilot ---
+INFO [2026-04-30 17:42:59.75]: -------------------
+INFO [2026-04-30 17:42:59.75]: Ready to upload new build to TestFlight (App: 6764177430)...
+DEBUG [2026-04-30 17:42:59.76]: App Platform (ios)
+INFO [2026-04-30 17:42:59.95]: Wrote XML data to '/var/folders/m1/8_w9962s3b79dqm00nnlm85m0000gn/T/d20260430-1121-x8hgto/6764177430-f74d11b0-9084-4d35-971a-e099437232c0.itmsp'
+INFO [2026-04-30 17:42:59.95]: Fetching password for transporter from environment variable named `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+DEBUG [2026-04-30 17:42:59.95]: Using altool as transporter.
+INFO [2026-04-30 17:42:59.96]: Going to upload updated app to App Store Connect
+INFO [2026-04-30 17:42:59.96]: This might take a few minutes. Please don't interrupt the script.
+DEBUG [2026-04-30 17:42:59.96]: xcrun altool --upload-app -u babalekpam@gmail.com -p YourPassword -t ios -f /var/folders/m1/8_w9962s3b79dqm00nnlm85m0000gn/T/2ca4568c-05c1-49fb-a830-d0863d771804.ipa --output-format xml -k 100000
+DEBUG [2026-04-30 17:43:01.31]: [altool]: Running altool at path '/Applications/Xcode.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Frameworks/AppStoreService.framework/Support/altool'...
+DEBUG [2026-04-30 17:43:43.88]: [altool]: 2026-04-30 17:43:43.886 [ContentDelivery.Uploader.6000032D8140] 
+DEBUG [2026-04-30 17:43:43.88]: [altool]: =============
+DEBUG [2026-04-30 17:43:43.88]: [altool]: UPLOAD FAILED with 1 error.
+DEBUG [2026-04-30 17:43:43.88]: [altool]: =============
+DEBUG [2026-04-30 17:43:43.89]: [altool]: <?xml version="1.0" encoding="UTF-8"?>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+DEBUG [2026-04-30 17:43:43.89]: [altool]: <plist version="1.0">
+DEBUG [2026-04-30 17:43:43.89]: [altool]: <dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<key>os-version</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<string>15.3.1</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<key>product-errors</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<array>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 		<dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<key>code</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<integer>409</integer>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<key>message</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<string>Validation failed</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<key>userInfo</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			<dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<key>NSLocalizedDescription</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<string>Validation failed</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<key>NSLocalizedFailureReason</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<string>SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<key>NSUnderlyingError</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<string>Error Domain=IrisAPI Code=-19241 "Validation failed" UserInfo={status=409, detail=SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution., id=1ac219fb-724e-46d6-81c3-153012ae477a, code=STATE_ERROR.VALIDATION_ERROR, title=Validation failed, NSLocalizedFailureReason=SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution., NSLocalizedDescription=Validation failed}</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<key>iris-code</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 				<string>STATE_ERROR.VALIDATION_ERROR</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 			</dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 		</dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	</array>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<key>tool-path</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<string>/Applications/Xcode.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/Frameworks/AppStoreService.framework</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<key>tool-version</key>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 	<string>8.003.16003</string>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: </dict>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: </plist>
+DEBUG [2026-04-30 17:43:43.89]: [altool]: 
+DEBUG [2026-04-30 17:43:43.89]: [altool]:
+WARN [2026-04-30 17:43:43.90]: [altool] 2026-04-30 17:43:25.487 *** Error: [ContentDelivery.Uploader.6000032D8140] Validation failed (409) SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)
+WARN [2026-04-30 17:43:43.90]: [altool] 2026-04-30 17:43:43.886 [ContentDelivery.Uploader.6000032D8140] 
+WARN [2026-04-30 17:43:43.90]: [altool] =============
+WARN [2026-04-30 17:43:43.90]: [altool] UPLOAD FAILED with 1 error.
+WARN [2026-04-30 17:43:43.90]: [altool] =============
+WARN [2026-04-30 17:43:43.90]: [altool] <?xml version="1.0" encoding="UTF-8"?>
+WARN [2026-04-30 17:43:43.90]: [altool] <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+WARN [2026-04-30 17:43:43.90]: [altool] <plist version="1.0">
+WARN [2026-04-30 17:43:43.90]: [altool] <dict>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<key>os-version</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<string>15.3.1</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<key>product-errors</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<array>
+WARN [2026-04-30 17:43:43.90]: [altool] 		<dict>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<key>code</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<integer>409</integer>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<key>message</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<string>Validation failed</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<key>userInfo</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 			<dict>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<key>NSLocalizedDescription</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<string>Validation failed</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<key>NSLocalizedFailureReason</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<string>SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<key>NSUnderlyingError</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<string>Error Domain=IrisAPI Code=-19241 "Validation failed" UserInfo={status=409, detail=SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution., id=1ac219fb-724e-46d6-81c3-153012ae477a, code=STATE_ERROR.VALIDATION_ERROR, title=Validation failed, NSLocalizedFailureReason=SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution., NSLocalizedDescription=Validation failed}</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<key>iris-code</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 				<string>STATE_ERROR.VALIDATION_ERROR</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 			</dict>
+WARN [2026-04-30 17:43:43.90]: [altool] 		</dict>
+WARN [2026-04-30 17:43:43.90]: [altool] 	</array>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<key>tool-path</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<string>/Applications/Xcode.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/Frameworks/AppStoreService.framework</string>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<key>tool-version</key>
+WARN [2026-04-30 17:43:43.90]: [altool] 	<string>8.003.16003</string>
+WARN [2026-04-30 17:43:43.90]: [altool] </dict>
+WARN [2026-04-30 17:43:43.90]: [altool] </plist>
+WARN [2026-04-30 17:43:43.90]: [altool] 
+WARN [2026-04-30 17:43:43.90]: [altool] 
+INFO [2026-04-30 17:43:43.90]: Application Loader output above ^
+ERROR [2026-04-30 17:43:43.90]: [ContentDelivery.Uploader.6000032D8140] Validation failed (409) SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)
+ERROR [2026-04-30 17:43:43.90]: The call to the altool completed with a non-zero exit status: 1. This indicates a failure.
+ERROR [2026-04-30 17:43:43.91]: Could not download/upload from App Store Connect!
+/Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/interface.rb:141:in `user_error!': [!] Error uploading ipa file:  (FastlaneCore::Interface::FastlaneError)
+ [Application Loader Error Output]: [ContentDelivery.Uploader.6000032D8140] Validation failed (409) SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)
+[Application Loader Error Output]: The call to the altool completed with a non-zero exit status: 1. This indicates a failure.
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/ui.rb:17:in `method_missing'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/pilot/lib/pilot/build_manager.rb:55:in `upload'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/actions/upload_to_testflight.rb:34:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:263:in `block (2 levels) in execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/actions/actions_helper.rb:69:in `execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:255:in `block in execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:229:in `chdir'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:229:in `execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/one_off.rb:42:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/one_off.rb:22:in `execute'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:226:in `block (2 levels) in run'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/command.rb:187:in `call'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/command.rb:157:in `run'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/runner.rb:444:in `run_active_command'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/fastlane_runner.rb:124:in `run!'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/delegates.rb:18:in `run!'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:363:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:43:in `start'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/cli_tools_distributor.rb:123:in `take_off'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/bin/fastlane:23:in `<top (required)>'
+	from /Users/expo/.gems/arm64/bin/fastlane:25:in `load'
+	from /Users/expo/.gems/arm64/bin/fastlane:25:in `<main>'
+/Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/interface.rb:141:in `user_error!': Error uploading ipa file:  (FastlaneCore::Interface::FastlaneError)
+ [Application Loader Error Output]: [ContentDelivery.Uploader.6000032D8140] Validation failed (409) SDK version issue. This app was built with the iOS 18.2 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later, included in Xcode 26 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 1ac219fb-724e-46d6-81c3-153012ae477a)
+[Application Loader Error Output]: The call to the altool completed with a non-zero exit status: 1. This indicates a failure.
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/ui.rb:17:in `method_missing'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/pilot/lib/pilot/build_manager.rb:55:in `upload'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/actions/upload_to_testflight.rb:34:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:263:in `block (2 levels) in execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/actions/actions_helper.rb:69:in `execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:255:in `block in execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:229:in `chdir'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/runner.rb:229:in `execute_action'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/one_off.rb:42:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/one_off.rb:22:in `execute'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:226:in `block (2 levels) in run'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/command.rb:187:in `call'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/command.rb:157:in `run'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/runner.rb:444:in `run_active_command'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane_core/lib/fastlane_core/ui/fastlane_runner.rb:124:in `run!'
+	from /Users/expo/.gems/arm64/gems/commander-4.6.0/lib/commander/delegates.rb:18:in `run!'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:363:in `run'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/commands_generator.rb:43:in `start'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/fastlane/lib/fastlane/cli_tools_distributor.rb:123:in `take_off'
+	from /Users/expo/.gems/arm64/gems/fastlane-2.226.0/bin/fastlane:23:in `<top (required)>'
+	from /Users/expo/.gems/arm64/bin/fastlane:25:in `load'
+	from /Users/expo/.gems/arm64/bin/fastlane:25:in `<main>'
+Fastlane pilot failed
+We couldn't figure out what went wrong. See logs to learn more.
+
+Failed to submit the app to the store
