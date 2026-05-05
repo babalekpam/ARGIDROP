@@ -42,6 +42,7 @@ import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
 import InviteScreen from '../screens/shared/InviteScreen';
+import DeleteAccountScreen from '../screens/shared/DeleteAccountScreen';
 
 const Stack = createStackNavigator();
 
@@ -105,6 +106,7 @@ export default function RootNavigator() {
           <Stack.Screen name="EndShift" component={EndShiftScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Invite" component={InviteScreen} />
+          <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </>
       ) : user.role === 'BUSINESS' ? (
         <>
@@ -126,6 +128,7 @@ export default function RootNavigator() {
           <Stack.Screen name="SettingsPassword" component={SettingsPasswordScreen} />
           <Stack.Screen name="SettingsBusiness" component={SettingsBusinessScreen} />
           <Stack.Screen name="SettingsRoadmap" component={SettingsRoadmapScreen} />
+          <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </>
       ) : (
         <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />

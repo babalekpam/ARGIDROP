@@ -129,6 +129,9 @@ export default function ProfileScreen() {
           <TouchableOpacity style={s.btnSignOut} onPress={() => Alert.alert('Sign out', 'Are you sure?', [{ text:'Cancel', style:'cancel' }, { text:'Sign out', style:'destructive', onPress:logout }])}>
             <Text style={{ color:'#9B2C2C', fontWeight:'500', fontSize:13 }}>Sign out</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={s.btnDeleteAccount} onPress={() => navigation.navigate('DeleteAccount')}>
+            <Text style={{ color:'#9B2C2C', fontWeight:'600', fontSize:13 }}>Delete my account</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -152,4 +155,5 @@ const s = StyleSheet.create({
   input:{ borderWidth:1, borderColor:C.border, borderRadius:6, padding:11, fontSize:14, color:C.ink, backgroundColor:C.cream },
   btnSm:{ backgroundColor:C.forest, borderRadius:6, padding:11, alignItems:'center' },
   btnSignOut:{ marginTop:14, padding:10, alignItems:'center', borderRadius:4, borderWidth:1, borderColor:'#F1B9A7' },
+  btnDeleteAccount:{ marginTop:8, padding:10, alignItems:'center', borderRadius:4, backgroundColor:'#FBEAE5', borderWidth:1, borderColor:'#F1B9A7' },
 });

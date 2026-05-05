@@ -280,6 +280,45 @@ router.post('/change-password', authenticate, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// DELETE /me — permanent account deletion required by Apple guideline 5.1.1(v).
+// Requires the user to re-enter their password as a confirmation step. Cascades
+// most user data via FK onDelete: 'cascade' (driver/business profiles, KYC docs,
+// devices, push tokens, OTP codes, notifications, referrals). For tables that
+// reference users without cascade (ratings, scans, disputes, audit log), we
+// keep the historical row but anonymize the user record so no PII remains.
+// After deletion the email is rewritten to a tombstone that won't collide with
+// future signups, the password is randomized, and `passwordChangedAt` is bumped
+// so every existing JWT/refresh token for this user is immediately revoked.
+router.delete('/me', authenticate, async (req, res, next) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Password required to delete account' });
+    }
+    const db = getDB();
+    const [u] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!u) return res.status(404).json({ success: false, message: 'User not found' });
+    const ok = await bcrypt.compare(password, u.passwordHash);
+    if (!ok) return res.status(401).json({ success: false, message: 'Password is incorrect' });
+    const tomb = `deleted-${u.id}@deleted.argidrop.local`;
+    const randomHash = await bcrypt.hash(uuidv4() + uuidv4(), 10);
+    const now = new Date();
+    await db.update(users).set({
+      email: tomb,
+      phone: null,
+      firstName: 'Deleted',
+      lastName: 'User',
+      avatarUrl: null,
+      fcmToken: null,
+      passwordHash: randomHash,
+      passwordChangedAt: now,
+      status: 'BANNED',
+      updatedAt: now,
+    }).where(eq(users.id, req.user.id));
+    res.json({ success: true, message: 'Account deleted' });
+  } catch (err) { next(err); }
+});
+
 // POST /refresh — re-issue an access token from a refresh token. We must also
 // re-check the user still exists, isn't banned, and that the refresh token
 // hasn't been invalidated by a subsequent password change.

@@ -58,7 +58,7 @@ export default function SettingsSupportScreen({ navigation }) {
           <Row icon="document-text-outline" label={t('support.terms', lang)}
                onPress={() => open(`${SUPPORT_BASE}/terms`)} />
           <Row icon="trash-outline" label={t('support.deletion', lang)}
-               onPress={() => open(`${SUPPORT_BASE}/account-deletion`)} />
+               onPress={() => navigation.navigate('DeleteAccount')} />
         </View>
 
         <Text style={s.legal}>{t('support.legal', lang)}</Text>
