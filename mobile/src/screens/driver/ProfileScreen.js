@@ -129,10 +129,12 @@ export default function ProfileScreen() {
           <TouchableOpacity style={s.btnSignOut} onPress={() => Alert.alert('Sign out', 'Are you sure?', [{ text:'Cancel', style:'cancel' }, { text:'Sign out', style:'destructive', onPress:logout }])}>
             <Text style={{ color:'#9B2C2C', fontWeight:'500', fontSize:13 }}>Sign out</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.btnDeleteAccount} onPress={() => navigation.navigate('DeleteAccount')}>
-            <Text style={{ color:'#9B2C2C', fontWeight:'600', fontSize:13 }}>Delete my account</Text>
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={s.btnDeleteAccount} onPress={() => navigation.navigate('DeleteAccount')} activeOpacity={0.8}>
+          <Text style={s.btnDeleteAccountText}>🗑  Delete my account</Text>
+          <Text style={s.btnDeleteAccountHint}>Permanently delete your account and personal data</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -155,5 +157,7 @@ const s = StyleSheet.create({
   input:{ borderWidth:1, borderColor:C.border, borderRadius:6, padding:11, fontSize:14, color:C.ink, backgroundColor:C.cream },
   btnSm:{ backgroundColor:C.forest, borderRadius:6, padding:11, alignItems:'center' },
   btnSignOut:{ marginTop:14, padding:10, alignItems:'center', borderRadius:4, borderWidth:1, borderColor:'#F1B9A7' },
-  btnDeleteAccount:{ marginTop:8, padding:10, alignItems:'center', borderRadius:4, backgroundColor:'#FBEAE5', borderWidth:1, borderColor:'#F1B9A7' },
+  btnDeleteAccount:{ marginTop:4, marginBottom:24, padding:16, alignItems:'center', borderRadius:8, backgroundColor:'#FBEAE5', borderWidth:1.5, borderColor:'#9B2C2C' },
+  btnDeleteAccountText:{ color:'#9B2C2C', fontWeight:'700', fontSize:15 },
+  btnDeleteAccountHint:{ color:'#9B2C2C', fontSize:11, marginTop:4, opacity:0.8 },
 });

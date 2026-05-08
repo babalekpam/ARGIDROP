@@ -389,6 +389,9 @@ const strings = {
   'support.deletion': { fr: 'Supprimer mon compte', en: 'Delete my account' },
   'support.legal': { fr: 'ArgiDrop est exploité par Argilette LLC (St. Louis, MO, USA) avec une équipe d\'opérations à Lomé, Togo.', en: 'ArgiDrop is operated by Argilette LLC (St. Louis, MO, USA) with an operations team in Lomé, Togo.' },
 
+  'more.deleteAccount': { fr: 'Supprimer mon compte', en: 'Delete account' },
+  'more.deleteAccountHint': { fr: 'Supprimer définitivement votre compte et vos données', en: 'Permanently delete your account and data' },
+
   'delete.title': { fr: 'Supprimer mon compte', en: 'Delete my account' },
   'delete.warning': { fr: 'Cette action est définitive. Une fois supprimé, votre compte ne peut pas être restauré.', en: 'This action is permanent. Once deleted, your account cannot be restored.' },
   'delete.willRemove': { fr: 'Ce qui sera supprimé', en: 'What will be removed' },

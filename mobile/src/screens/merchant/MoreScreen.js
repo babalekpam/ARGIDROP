@@ -70,6 +70,8 @@ export default function MerchantMoreScreen({ navigation }) {
              onPress={() => navigation.navigate('SettingsLanguage')} />
         <Row icon="help-circle-outline" label={t('more.support', lang)}
              onPress={() => navigation.navigate('SettingsSupport')} />
+        <Row icon="trash-outline" label={t('more.deleteAccount', lang)} hint={t('more.deleteAccountHint', lang)}
+             onPress={() => navigation.navigate('DeleteAccount')} />
       </View>
 
       <TouchableOpacity style={s.signOut} onPress={confirmLogout}>
