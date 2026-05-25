@@ -18,6 +18,9 @@ export default function HomeScreen({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
   const [location, setLocation] = useState(null);
   const [availableJobs, setAvailableJobs] = useState([]);
+  const [scheduledJobs, setScheduledJobs] = useState([]);
+  const [myScheduledJobs, setMyScheduledJobs] = useState([]);
+  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'scheduled'
   const [activeJob, setActiveJob] = useState(null);
   const [todayStats, setTodayStats] = useState({ earnings: 0, deliveries: 0 });
   const [payoutStatus, setPayoutStatus] = useState(null);
@@ -32,6 +35,37 @@ export default function HomeScreen({ navigation }) {
       setAvailableJobs(res.data.jobs || []);
     } catch (err) { console.error('Load jobs error:', err.message); }
   }, [location]);
+
+  const loadScheduled = useCallback(async () => {
+    try {
+      const q = location ? `?lat=${location.latitude}&lng=${location.longitude}&radius=50` : '';
+      const [open, mine] = await Promise.all([
+        api.get(`/jobs/scheduled${q}`),
+        api.get('/jobs/scheduled?mine=1'),
+      ]);
+      setScheduledJobs(open.data.jobs || []);
+      setMyScheduledJobs(mine.data.jobs || []);
+    } catch (err) { console.error('Load scheduled error:', err.message); }
+  }, [location]);
+
+  const preclaim = async (jobId) => {
+    try {
+      await api.post(`/jobs/${jobId}/preclaim`);
+      Alert.alert(t('driverHome.preclaimed', lang), t('driverHome.preclaimSuccess', lang));
+      await loadScheduled();
+    } catch (e) {
+      Alert.alert('', e.response?.data?.message || 'Could not reserve job');
+    }
+  };
+
+  const releasePreclaim = async (jobId) => {
+    try {
+      await api.post(`/jobs/${jobId}/release-preclaim`);
+      await loadScheduled();
+    } catch (e) {
+      Alert.alert('', e.response?.data?.message || 'Could not release');
+    }
+  };
 
   const loadActiveJob = async () => {
     try {
@@ -71,7 +105,7 @@ export default function HomeScreen({ navigation }) {
     loadPayoutStatus();
   }, []);
 
-  useEffect(() => { loadJobs(); }, [location, loadJobs]);
+  useEffect(() => { loadJobs(); loadScheduled(); }, [location, loadJobs, loadScheduled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,8 +169,13 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadJobs(), loadActiveJob(), loadStats()]);
+    await Promise.all([loadJobs(), loadScheduled(), loadActiveJob(), loadStats()]);
     setRefreshing(false);
+  };
+
+  const fmtDateTime = (iso) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const dateLocale = lang === 'fr' ? 'fr-FR' : 'en-US';
@@ -216,42 +255,111 @@ export default function HomeScreen({ navigation }) {
       )}
 
       <View style={s.jobsSection}>
-        <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>{t('driverHome.availableNear', lang)}</Text>
-          <Text style={s.sectionCount}>{availableJobs.length} {availableJobs.length === 1 ? t('driverHome.jobOne', lang) : t('driverHome.jobMany', lang)}</Text>
+        <View style={s.tabRow}>
+          <TouchableOpacity style={[s.tab, activeTab === 'available' && s.tabActive]} onPress={() => setActiveTab('available')}>
+            <Text style={[s.tabText, activeTab === 'available' && s.tabTextActive]}>
+              {t('driverHome.tabAvailable', lang)} · {availableJobs.length}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.tab, activeTab === 'scheduled' && s.tabActive]} onPress={() => setActiveTab('scheduled')}>
+            <Text style={[s.tabText, activeTab === 'scheduled' && s.tabTextActive]}>
+              {t('driverHome.tabScheduled', lang)} · {scheduledJobs.length + myScheduledJobs.length}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {!isOnline ? (
-          <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>{t('driverHome.goOnline', lang)}</Text>
-            <Text style={s.emptyText}>{t('driverHome.goOnlineDesc', lang)}</Text>
-          </View>
-        ) : availableJobs.length === 0 ? (
-          <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>{t('driverHome.noJobs', lang)}</Text>
-            <Text style={s.emptyText}>{t('driverHome.noJobsDesc', lang)}</Text>
-          </View>
-        ) : (
-          availableJobs.slice(0, 10).map(({ job }) => (
-            <TouchableOpacity key={job.id} style={s.jobCard}
-              onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <View style={s.urgencyChip}>
-                  <Text style={s.urgencyText}>{t(`urgency.${job.urgency || 'STANDARD'}`, lang).toUpperCase()}</Text>
+        {activeTab === 'available' ? (
+          !isOnline ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>{t('driverHome.goOnline', lang)}</Text>
+              <Text style={s.emptyText}>{t('driverHome.goOnlineDesc', lang)}</Text>
+            </View>
+          ) : availableJobs.length === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>{t('driverHome.noJobs', lang)}</Text>
+              <Text style={s.emptyText}>{t('driverHome.noJobsDesc', lang)}</Text>
+            </View>
+          ) : (
+            availableJobs.slice(0, 10).map(({ job }) => (
+              <TouchableOpacity key={job.id} style={s.jobCard}
+                onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <View style={s.urgencyChip}>
+                    <Text style={s.urgencyText}>{t(`urgency.${job.urgency || 'STANDARD'}`, lang).toUpperCase()}</Text>
+                  </View>
+                  <Text style={s.jobPrice}>{job.priceOffered} {job.currency}</Text>
                 </View>
-                <Text style={s.jobPrice}>{job.priceOffered} {job.currency}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
-                <View style={{ width: 3, backgroundColor: C.bronze, borderRadius: 2 }} />
-                <Text style={s.jobAddr} numberOfLines={1}>{job.pickupAddress}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ width: 3, backgroundColor: C.forest, borderRadius: 2 }} />
-                <Text style={s.jobAddr} numberOfLines={1}>{job.dropoffAddress}</Text>
-              </View>
-              <Text style={s.jobMeta}>{t(`pkg.${job.packageType}`, lang)}{job.weightKg ? ` · ${job.weightKg} kg` : ''}</Text>
-            </TouchableOpacity>
-          ))
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                  <View style={{ width: 3, backgroundColor: C.bronze, borderRadius: 2 }} />
+                  <Text style={s.jobAddr} numberOfLines={1}>{job.pickupAddress}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ width: 3, backgroundColor: C.forest, borderRadius: 2 }} />
+                  <Text style={s.jobAddr} numberOfLines={1}>{job.dropoffAddress}</Text>
+                </View>
+                <Text style={s.jobMeta}>{t(`pkg.${job.packageType}`, lang)}{job.weightKg ? ` · ${job.weightKg} kg` : ''}</Text>
+              </TouchableOpacity>
+            ))
+          )
+        ) : (
+          // SCHEDULED TAB
+          (scheduledJobs.length + myScheduledJobs.length) === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>{t('driverHome.scheduledEmpty', lang)}</Text>
+              <Text style={s.emptyText}>{t('driverHome.scheduledEmptyDesc', lang)}</Text>
+            </View>
+          ) : (
+            <>
+              {myScheduledJobs.map(({ job }) => (
+                <View key={job.id} style={[s.jobCard, { borderColor: C.forest, borderWidth: 1.5 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <View style={[s.urgencyChip, { backgroundColor: C.forest, borderColor: C.forest }]}>
+                      <Text style={[s.urgencyText, { color: C.paper }]}>{t('driverHome.preclaimed', lang).toUpperCase()}</Text>
+                    </View>
+                    <Text style={s.jobPrice}>{job.priceOffered} {job.currency}</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: C.forest, fontWeight: '600', marginBottom: 8 }}>
+                    {t('driverHome.scheduledFor', lang)}: {fmtDateTime(job.scheduledPickupAt)}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                    <View style={{ width: 3, backgroundColor: C.bronze, borderRadius: 2 }} />
+                    <Text style={s.jobAddr} numberOfLines={1}>{job.pickupAddress}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ width: 3, backgroundColor: C.forest, borderRadius: 2 }} />
+                    <Text style={s.jobAddr} numberOfLines={1}>{job.dropoffAddress}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => releasePreclaim(job.id)} style={{ marginTop: 10, alignSelf: 'flex-end' }}>
+                    <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>{t('driverHome.releasePreclaim', lang)}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {scheduledJobs.map(({ job }) => (
+                <View key={job.id} style={s.jobCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <View style={s.urgencyChip}>
+                      <Text style={s.urgencyText}>{t(`urgency.${job.urgency || 'STANDARD'}`, lang).toUpperCase()}</Text>
+                    </View>
+                    <Text style={s.jobPrice}>{job.priceOffered} {job.currency}</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: C.bronze, fontWeight: '600', marginBottom: 8 }}>
+                    {t('driverHome.scheduledFor', lang)}: {fmtDateTime(job.scheduledPickupAt)}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                    <View style={{ width: 3, backgroundColor: C.bronze, borderRadius: 2 }} />
+                    <Text style={s.jobAddr} numberOfLines={1}>{job.pickupAddress}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ width: 3, backgroundColor: C.forest, borderRadius: 2 }} />
+                    <Text style={s.jobAddr} numberOfLines={1}>{job.dropoffAddress}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => preclaim(job.id)} style={{ marginTop: 12, backgroundColor: C.forest, paddingVertical: 10, borderRadius: 6, alignItems: 'center' }}>
+                    <Text style={{ color: C.paper, fontWeight: '600', fontSize: 13 }}>{t('driverHome.preclaim', lang)}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )
         )}
       </View>
       <View style={{ height: 32 }} />
@@ -282,6 +390,11 @@ const s = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '500', color: C.ink },
   sectionCount: { fontSize: 11, color: C.muted, letterSpacing: 1, fontWeight: '600' },
+  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border },
+  tab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: C.forest },
+  tabText: { fontSize: 13, color: C.muted, fontWeight: '500' },
+  tabTextActive: { color: C.forest, fontWeight: '600' },
   emptyState: { backgroundColor: C.paper, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 24, alignItems: 'center' },
   emptyTitle: { fontSize: 15, fontWeight: '500', color: C.ink, marginBottom: 6 },
   emptyText: { fontSize: 13, color: C.muted, textAlign: 'center' },

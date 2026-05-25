@@ -82,6 +82,15 @@ export default function PaymentSheetScreen({ route, navigation }) {
                 { name: 'PickupQR', params: { jobId } },
               ],
             });
+          } else if (j.status === 'SCHEDULED') {
+            // Scheduled job paid → close webview, confirm, return home. The
+            // promoter cron will broadcast/match later.
+            setPaymentUrl(null);
+            Alert.alert(
+              t('newDelivery.scheduledFor', lang) || 'Scheduled',
+              j.scheduledPickupAt ? new Date(j.scheduledPickupAt).toLocaleString() : '',
+            );
+            navigation.reset({ index: 0, routes: [{ name: 'MerchantTabs' }] });
           } else if (j.status === 'CANCELLED' || j.status === 'EXPIRED') {
             setPaymentUrl(null);
             Alert.alert(t('payment.failedTitle', lang), t('payment.failedBody', lang));
@@ -114,6 +123,13 @@ export default function PaymentSheetScreen({ route, navigation }) {
       } else if (data.job?.status === 'POSTED') {
         // unlikely with momo, but handle wallet-style success
         navigation.replace('PickupQR', { jobId: data.job.id });
+      } else if (data.job?.status === 'SCHEDULED') {
+        // Scheduled job — payment held, will be promoted by cron. Go back to home.
+        Alert.alert(
+          t('newDelivery.scheduledFor', lang) || 'Scheduled',
+          new Date(data.job.scheduledPickupAt).toLocaleString(),
+        );
+        navigation.popToTop();
       } else {
         setError(t('payment.notInitiated', lang));
       }

@@ -175,6 +175,8 @@ async function ensureSuperAdmin() {
     startNightlyPayouts();
     const { startNightlyReferrals } = require('./src/jobs/nightly-referrals');
     startNightlyReferrals();
+    const { startScheduledJobPromoter } = require('./src/jobs/scheduled-job-promoter');
+    startScheduledJobPromoter();
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ArgiDrop API on port ${PORT}`));
   } catch (err) {
     console.error('❌ Startup failed:', err);

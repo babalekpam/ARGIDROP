@@ -1,7 +1,7 @@
 // Jobs Route — Option A flow: pay first, then broadcast
 const express = require('express');
 const multer = require('multer');
-const { eq, and, desc, or, sql, inArray } = require('drizzle-orm');
+const { eq, and, desc, or, sql, inArray, lte } = require('drizzle-orm');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
@@ -10,7 +10,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { validatePromo, recordRedemption } = require('../services/promo');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
-const { holdFunds, returnHold } = require('../services/wallet');
+const { holdFunds, returnHold, releaseHold } = require('../services/wallet');
 const { generatePickupCode } = require('../services/qr');
 const { sendPushNotification, sendSMS } = require('../services/notification');
 const { uploadFile, getSignedUrl } = require('../services/storage');
@@ -42,11 +42,48 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       paymentPhone,
       currency: requestCurrency,
       promoCode,              // optional marketing code → discount + optional driver bonus
-      stops
+      stops,
+      // ─── Scheduled-delivery fields (Phase 1) ───
+      // scheduledPickupAt: ISO timestamp ≥1h in the future and ≤90 days out
+      // scheduledWindowEnd: optional ISO timestamp marking end of pickup window
+      // isRecurring + recurrenceRule: reserved for V2 (parent record only here)
+      scheduledPickupAt: scheduledPickupAtRaw,
+      scheduledWindowEnd: scheduledWindowEndRaw,
+      isRecurring: isRecurringRaw,
+      recurrenceRule: recurrenceRuleRaw,
     } = req.body;
 
     if (!pickupAddress || !dropoffAddress || !packageType || !priceOffered) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    // ─── Validate scheduling ───
+    let scheduledPickupAt = null;
+    let scheduledWindowEnd = null;
+    let isScheduled = false;
+    if (scheduledPickupAtRaw) {
+      const pickAt = new Date(scheduledPickupAtRaw);
+      if (Number.isNaN(pickAt.getTime())) {
+        return res.status(400).json({ success: false, code: 'INVALID_SCHEDULE', message: 'scheduledPickupAt is not a valid date' });
+      }
+      const now = Date.now();
+      const minLead = 60 * 60 * 1000; // 1h
+      const maxLead = 90 * 24 * 60 * 60 * 1000; // 90d
+      if (pickAt.getTime() < now + minLead) {
+        return res.status(400).json({ success: false, code: 'SCHEDULE_TOO_SOON', message: 'Scheduled pickup must be at least 1 hour from now' });
+      }
+      if (pickAt.getTime() > now + maxLead) {
+        return res.status(400).json({ success: false, code: 'SCHEDULE_TOO_FAR', message: 'Scheduled pickup must be within 90 days' });
+      }
+      scheduledPickupAt = pickAt;
+      isScheduled = true;
+      if (scheduledWindowEndRaw) {
+        const endAt = new Date(scheduledWindowEndRaw);
+        if (Number.isNaN(endAt.getTime()) || endAt.getTime() <= pickAt.getTime()) {
+          return res.status(400).json({ success: false, code: 'INVALID_WINDOW', message: 'scheduledWindowEnd must be after scheduledPickupAt' });
+        }
+        scheduledWindowEnd = endAt;
+      }
     }
 
     const currency = requestCurrency || defaultCurrencyForCountry(business.country);
@@ -105,6 +142,10 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       driverBonusAmount: String(driverBonusAmount),
       status: 'DRAFT',
       paymentCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min to pay
+      scheduledPickupAt,
+      scheduledWindowEnd,
+      isRecurring: !!isRecurringRaw,
+      recurrenceRule: recurrenceRuleRaw || null,
       zoneId
     }).returning();
 
@@ -163,19 +204,25 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
 
       // (Promo redemption already recorded atomically above.)
 
-      // Straight to POSTED
+      // Scheduled jobs sit in SCHEDULED and are promoted to POSTED later by
+      // the scheduled-job-promoter cron. Instant jobs broadcast immediately.
       const now = new Date();
-      await db.update(jobs).set({ status: 'POSTED', paymentConfirmedAt: now, updatedAt: now }).where(eq(jobs.id, job.id));
+      const nextStatus = isScheduled ? 'SCHEDULED' : 'POSTED';
+      await db.update(jobs).set({ status: nextStatus, paymentConfirmedAt: now, updatedAt: now }).where(eq(jobs.id, job.id));
 
-      // Broadcast to drivers
-      const nearby = await findNearbyDrivers(pickupLat, pickupLng, vehicleTypeRequired);
-      if (nearby.length) await broadcastJobToDrivers({ ...job, status: 'POSTED' }, nearby);
+      let driversNotified = 0;
+      if (nextStatus === 'POSTED') {
+        const nearby = await findNearbyDrivers(pickupLat, pickupLng, vehicleTypeRequired);
+        if (nearby.length) await broadcastJobToDrivers({ ...job, status: 'POSTED' }, nearby);
+        driversNotified = nearby.length;
+      }
 
       return res.status(201).json({
         success: true,
         paymentMethod: 'wallet',
-        job: { ...job, status: 'POSTED' },
-        driversNotified: nearby.length
+        job: { ...job, status: nextStatus },
+        scheduled: isScheduled,
+        driversNotified,
       });
     }
 
@@ -281,6 +328,101 @@ router.get('/', authenticate, async (req, res, next) => {
 
     const result = await query.orderBy(desc(jobs.createdAt)).limit(parseInt(limit)).offset(parseInt(offset));
     res.json({ success: true, jobs: result, total: result.length });
+  } catch (err) { next(err); }
+});
+
+/**
+ * GET /jobs/scheduled
+ * Drivers see SCHEDULED jobs they can pre-claim. Filters:
+ *   - lat/lng/radius: same proximity filter as /available
+ *   - mine=1: only jobs already pre-claimed by this driver
+ *   - within=hours: only jobs whose pickup is within N hours (default 168 = 7d)
+ */
+router.get('/scheduled', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const { lat, lng, radius = 50, mine, within = 168 } = req.query;
+    const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!driver?.isActive) return res.status(403).json({ success: false, message: 'Driver not verified yet' });
+
+    const userLat = lat ? parseFloat(lat) : (driver.currentLat ? parseFloat(driver.currentLat) : null);
+    const userLng = lng ? parseFloat(lng) : (driver.currentLng ? parseFloat(driver.currentLng) : null);
+    const horizon = new Date(Date.now() + parseInt(within) * 60 * 60 * 1000);
+
+    const conditions = [eq(jobs.status, 'SCHEDULED'), lte(jobs.scheduledPickupAt, horizon)];
+    if (mine === '1' || mine === 'true') {
+      conditions.push(eq(jobs.driverId, driver.id));
+    } else {
+      // open scheduled jobs (not yet pre-claimed)
+      conditions.push(sql`${jobs.driverId} IS NULL`);
+    }
+
+    const rows = await db.select({ job: jobs, business: { companyName: businesses.companyName, rating: businesses.rating } })
+      .from(jobs)
+      .leftJoin(businesses, eq(jobs.businessId, businesses.id))
+      .where(and(...conditions))
+      .orderBy(jobs.scheduledPickupAt)
+      .limit(50);
+
+    const filtered = (userLat && userLng) ? rows.filter(({ job }) => {
+      if (!job.pickupLat || !job.pickupLng) return true;
+      return haversineKm(userLat, userLng, parseFloat(job.pickupLat), parseFloat(job.pickupLng)) <= parseInt(radius);
+    }) : rows;
+
+    res.json({ success: true, jobs: filtered });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /jobs/:id/preclaim
+ * Driver reserves a SCHEDULED job. When the promoter cron fires, it goes
+ * straight to MATCHED for this driver (no broadcast).
+ */
+router.post('/:id/preclaim', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!driver?.isActive) return res.status(403).json({ success: false, message: 'Driver not verified yet' });
+
+    const now = new Date();
+    const [updated] = await db.update(jobs).set({
+      driverId: driver.id,
+      preclaimedAt: now,
+      updatedAt: now,
+    }).where(and(
+      eq(jobs.id, req.params.id),
+      eq(jobs.status, 'SCHEDULED'),
+      sql`${jobs.driverId} IS NULL`,
+    )).returning();
+
+    if (!updated) return res.status(409).json({ success: false, code: 'NOT_AVAILABLE', message: 'Job is no longer available to pre-claim' });
+
+    res.json({ success: true, job: updated, message: 'Pre-claimed — you will be assigned automatically when the pickup window opens.' });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /jobs/:id/release-preclaim
+ * Driver releases a job they pre-claimed (no penalty if >24h before pickup).
+ */
+router.post('/:id/release-preclaim', authenticate, requireRole('DRIVER'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
+    if (!driver) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    const [updated] = await db.update(jobs).set({
+      driverId: null,
+      preclaimedAt: null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(jobs.id, req.params.id),
+      eq(jobs.status, 'SCHEDULED'),
+      eq(jobs.driverId, driver.id),
+    )).returning();
+
+    if (!updated) return res.status(404).json({ success: false, message: 'No pre-claim to release' });
+    res.json({ success: true, job: updated });
   } catch (err) { next(err); }
 });
 
@@ -498,26 +640,64 @@ router.post('/:id/cancel', authenticate, async (req, res, next) => {
       }
     }
 
+    // ─── Cancellation policy for scheduled jobs ───
+    // If the MERCHANT cancels a scheduled job close to pickup time, charge a
+    // fee (kept as platform revenue, the rest refunded). Drivers and admins
+    // never trigger a merchant cancellation fee — otherwise a driver dropping
+    // out would penalize the merchant unfairly.
+    //   • >24h before pickup → free
+    //   • 2h–24h before     → 50% fee
+    //   • <2h before        → 100% fee (no refund)
+    let cancelFeeBps = 0; // basis points (10000 = 100%)
+    let cancelFeeReason = null;
+    if (req.user.role === 'BUSINESS' && job.scheduledPickupAt && ['SCHEDULED', 'POSTED', 'MATCHED'].includes(job.status)) {
+      const hoursToPickup = (new Date(job.scheduledPickupAt).getTime() - Date.now()) / (60 * 60 * 1000);
+      if (hoursToPickup < 2) { cancelFeeBps = 10000; cancelFeeReason = 'LATE_CANCEL_UNDER_2H'; }
+      else if (hoursToPickup < 24) { cancelFeeBps = 5000; cancelFeeReason = 'LATE_CANCEL_UNDER_24H'; }
+    }
+
     await db.update(jobs).set({
       status: 'CANCELLED', cancelReason: reason, cancelledBy: req.user.id, updatedAt: new Date()
     }).where(eq(jobs.id, job.id));
 
-    // Refund based on payment method
+    // Refund based on payment method (minus any cancellation fee).
     const [payment] = await db.select().from(payments).where(eq(payments.jobId, job.id)).limit(1);
+    let refundedAmount = 0;
+    let cancelFeeAmount = 0;
     if (payment?.status === 'HELD') {
+      const gross = parseFloat(payment.grossAmount);
+      cancelFeeAmount = +(gross * cancelFeeBps / 10000).toFixed(2);
+      refundedAmount = +(gross - cancelFeeAmount).toFixed(2);
+
       if (payment.paymentProvider === 'WALLET') {
-        await returnHold(job.businessId, job.id, payment.grossAmount);
-      } else {
-        // External provider — trigger refund
+        // Wallet held funds must be fully drained either way to avoid stuck
+        // heldBalance. Fee portion goes to the platform (releaseHold spends
+        // it out of the wallet); refund portion is unlocked back to the
+        // merchant (returnHold).
+        if (cancelFeeAmount > 0) await releaseHold(job.businessId, job.id, cancelFeeAmount);
+        if (refundedAmount > 0) await returnHold(job.businessId, job.id, refundedAmount);
+      } else if (refundedAmount > 0) {
         const adapter = getAdapter(payment.paymentProvider);
         if (payment.providerTxRef) {
-          await adapter.refund(payment.providerTxRef, payment.grossAmount).catch(() => {});
+          await adapter.refund(payment.providerTxRef, refundedAmount).catch(() => {});
         }
       }
-      await db.update(payments).set({ status: 'REFUNDED', refundedAt: new Date() }).where(eq(payments.id, payment.id));
+      await db.update(payments).set({
+        status: cancelFeeAmount >= gross ? 'RELEASED' : 'REFUNDED',
+        refundedAt: new Date(),
+      }).where(eq(payments.id, payment.id));
     }
 
-    res.json({ success: true, message: 'Job cancelled, funds returned' });
+    res.json({
+      success: true,
+      message: cancelFeeAmount > 0
+        ? `Job cancelled. A ${cancelFeeBps / 100}% late-cancellation fee was applied.`
+        : 'Job cancelled, funds returned',
+      cancelFeeBps,
+      cancelFeeReason,
+      cancelFeeAmount,
+      refundedAmount,
+    });
   } catch (err) { next(err); }
 });
 

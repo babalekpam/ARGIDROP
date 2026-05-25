@@ -243,6 +243,31 @@ const strings = {
   'newDelivery.promoFirst': { fr: 'Obtenez un devis d\'abord', en: 'Get a price quote first' },
   'newDelivery.invalidPromo': { fr: 'Code promo invalide', en: 'Invalid promo code' },
   'newDelivery.youPay': { fr: 'Vous payez', en: 'You pay' },
+
+  // Scheduled deliveries (Phase 1)
+  'newDelivery.schedule': { fr: 'Quand ?', en: 'When?' },
+  'newDelivery.scheduleNow': { fr: 'Maintenant', en: 'Now' },
+  'newDelivery.scheduleLater': { fr: 'Plus tard', en: 'Schedule' },
+  'newDelivery.scheduleNowSub': { fr: 'Un chauffeur sera affecté immédiatement', en: 'A driver will be matched right away' },
+  'newDelivery.scheduleLaterSub': { fr: 'Choisissez date et heure (jusqu\'à 90 jours)', en: 'Pick a date and time (up to 90 days)' },
+  'newDelivery.pickDay': { fr: 'Jour de ramassage', en: 'Pickup day' },
+  'newDelivery.pickTime': { fr: 'Heure de ramassage', en: 'Pickup time' },
+  'newDelivery.scheduledFor': { fr: 'Programmé pour', en: 'Scheduled for' },
+  'newDelivery.scheduleHint': { fr: 'Annulation gratuite jusqu\'à 24 h avant. Frais de 50 % entre 24 h et 2 h, 100 % moins de 2 h avant.', en: 'Free cancellation up to 24h before. 50% fee 24h–2h, 100% under 2h before.' },
+  'newDelivery.day.today': { fr: 'Aujourd\'hui', en: 'Today' },
+  'newDelivery.day.tomorrow': { fr: 'Demain', en: 'Tomorrow' },
+
+  // Driver scheduled tab
+  'driverHome.tabAvailable': { fr: 'Disponibles', en: 'Available' },
+  'driverHome.tabScheduled': { fr: 'Programmées', en: 'Scheduled' },
+  'driverHome.scheduledTitle': { fr: 'Livraisons programmées', en: 'Scheduled deliveries' },
+  'driverHome.scheduledEmpty': { fr: 'Aucune livraison programmée pour le moment', en: 'No scheduled deliveries right now' },
+  'driverHome.scheduledEmptyDesc': { fr: 'Réservez à l\'avance pour garantir le job à votre horaire.', en: 'Reserve ahead to lock a job for your schedule.' },
+  'driverHome.preclaim': { fr: 'Réserver', en: 'Reserve' },
+  'driverHome.preclaimed': { fr: 'Réservé', en: 'Reserved' },
+  'driverHome.releasePreclaim': { fr: 'Libérer', en: 'Release' },
+  'driverHome.preclaimSuccess': { fr: 'Réservé — vous serez affecté automatiquement à l\'ouverture du créneau.', en: 'Reserved — you\'ll be auto-assigned when the window opens.' },
+  'driverHome.scheduledFor': { fr: 'Programmé pour', en: 'Scheduled for' },
   'newDelivery.promo': { fr: 'Promo', en: 'Promo' },
   // Package types
   'pkg.DOCS': { fr: 'Documents', en: 'Documents' },

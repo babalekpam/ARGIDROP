@@ -29,6 +29,24 @@ Localization uses `mobile/src/utils/i18n.js` (`t(key, lang, vars)`); `getLang(us
 
 Session revocation on password change is enforced via a `pwdAt` JWT claim. The `users.password_changed_at` column (added May 2026) is bumped by `POST /auth/change-password`, and both the auth middleware and `POST /auth/refresh` reject any token whose embedded `pwdAt` is older than the column. The change-password response returns a fresh access+refresh pair so the calling device stays signed in; every other device is logged out on its next request. Tokens issued before this feature shipped have no `pwdAt` claim and are treated as `pwdAt=0`, so they keep working until the user changes their password (then they're revoked along with everything else).
 
+### Scheduled deliveries — Phase 1 (May 2026)
+
+Merchants can now schedule deliveries up to 90 days ahead (≥1h lead).
+
+**Backend:**
+- `job_status` enum gained a `SCHEDULED` value (between `AWAITING_PAYMENT` and `POSTED`).
+- `jobs` table added: `scheduled_window_end`, `is_recurring`, `recurrence_rule`, `recurrence_parent_id`, `preclaimed_at`, `promoted_at` + a partial index on `scheduled_pickup_at WHERE status='SCHEDULED'`.
+- `POST /jobs` accepts `scheduledPickupAt`, `scheduledWindowEnd`, `isRecurring`, `recurrenceRule`. Validates 1h ≤ lead ≤ 90d. Wallet path sets status to `SCHEDULED` instead of `POSTED`; momo path stays `AWAITING_PAYMENT` and the webhook now branches on `scheduledPickupAt` to land on `SCHEDULED` (no broadcast).
+- New cron `backend/src/jobs/scheduled-job-promoter.js` runs every 15 min (lead `SCHEDULED_PROMOTION_LEAD_MINUTES`, default 180). Pre-claimed jobs go straight to `MATCHED` for the reserving driver; otherwise they go to `POSTED` and broadcast.
+- New endpoints: `GET /jobs/scheduled` (open + `mine=1`), `POST /jobs/:id/preclaim`, `POST /jobs/:id/release-preclaim`.
+- Cancellation policy on scheduled jobs (when actor is not ADMIN): free >24h before pickup, 50% fee 2–24h, 100% fee <2h. The fee stays with the platform; the rest is refunded via wallet `returnHold` or provider refund.
+
+**Mobile (merchant):** `NewDeliveryScreen` shows a "Now / Schedule" toggle. Schedule mode adds horizontally-scrolling day chips (today + 29 days) and hour chips (06:00–22:00). The selected datetime is sent through `PaymentSheetScreen` as ISO `scheduledPickupAt`. `PaymentSheetScreen` recognizes the new `SCHEDULED` status response and surfaces a confirmation alert.
+
+**Mobile (driver):** `HomeScreen` has tabs for "Available" and "Scheduled". The Scheduled tab lists open scheduled jobs (with Reserve button) and the driver's own pre-claimed jobs (with Release button). Cards show the pickup datetime in the user's locale.
+
+**Migration:** `backend/migrations/20260525_scheduled_deliveries.sql` (idempotent — uses `IF NOT EXISTS` + an enum-value `DO $$ ... END $$` guard). Already applied to local dev DB and to production.
+
 ## External Dependencies
 
 ArgiDrop integrates with the following third-party services:

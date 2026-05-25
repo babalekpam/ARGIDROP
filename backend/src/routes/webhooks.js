@@ -117,32 +117,47 @@ async function confirmJobPayment(jobId, provider, event) {
   if (job.status !== 'AWAITING_PAYMENT') return;
   const now = new Date();
   const txId = event?.data?.id?.toString() || event?.transaction?.id || event?.referenceId || null;
+  // For scheduled jobs, hold in SCHEDULED until the promoter cron picks them up.
+  // For instant jobs, go straight to POSTED so drivers can accept immediately.
+  const isScheduled = job.scheduledPickupAt && new Date(job.scheduledPickupAt).getTime() > now.getTime() + 60 * 60 * 1000;
+  const nextStatus = isScheduled ? 'SCHEDULED' : 'POSTED';
   await db.update(jobs).set({
-    status: 'POSTED',
+    status: nextStatus,
     paymentConfirmedAt: now,
     paymentProviderRef: txId,
     paymentProvider: provider,
     updatedAt: now,
   }).where(eq(jobs.id, jobId));
+  // Mirror the wallet-path math: the merchant was actually charged the
+  // discounted amount, but the driver is paid out of the original price so
+  // they're not penalized for a promo. The platform absorbs the discount.
   const commissionRate = 18;
-  const gross = parseFloat(job.priceOffered);
-  const commission = gross * commissionRate / 100;
+  const originalPrice = parseFloat(job.priceOffered);
+  const discountAmount = parseFloat(job.discountAmount || 0);
+  const driverBonusAmount = parseFloat(job.driverBonusAmount || 0);
+  const chargedAmount = +(originalPrice - discountAmount).toFixed(2);
+  const driverPayout = +(originalPrice * (1 - commissionRate / 100) + driverBonusAmount).toFixed(2);
+  const commissionAmount = +(chargedAmount - driverPayout).toFixed(2);
   await db.insert(payments).values({
     jobId: job.id,
     businessId: job.businessId,
-    grossAmount: gross,
+    grossAmount: chargedAmount,
     commissionRate,
-    commissionAmount: commission,
-    driverPayout: gross - commission,
+    commissionAmount,
+    driverPayout,
     currency: job.currency,
     status: 'HELD',
     heldAt: now,
     paymentProvider: provider,
     providerTxRef: txId,
   });
-  const { findNearbyDrivers, broadcastJobToDrivers } = require('../services/geo');
-  const nearby = await findNearbyDrivers(job.pickupLat, job.pickupLng, job.vehicleTypeRequired);
-  if (nearby.length > 0) await broadcastJobToDrivers(job, nearby);
+  // Only broadcast for instant jobs. Scheduled jobs are broadcast later by
+  // the scheduled-job-promoter cron when within the promotion lead time.
+  if (nextStatus === 'POSTED') {
+    const { findNearbyDrivers, broadcastJobToDrivers } = require('../services/geo');
+    const nearby = await findNearbyDrivers(job.pickupLat, job.pickupLng, job.vehicleTypeRequired);
+    if (nearby.length > 0) await broadcastJobToDrivers(job, nearby);
+  }
 }
 
 module.exports = router;

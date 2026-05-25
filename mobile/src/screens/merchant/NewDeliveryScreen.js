@@ -30,6 +30,13 @@ export default function NewDeliveryScreen({ navigation }) {
   const [isFragile, setIsFragile] = useState(false);
   const [urgency, setUrgency] = useState('STANDARD');
 
+  // Scheduling (Phase 1). scheduleMode: 'now' | 'later'.
+  // scheduledDate = ms since epoch of selected day (midnight local), null if "now".
+  // scheduledHour = 0-23 selected hour, null if "now".
+  const [scheduleMode, setScheduleMode] = useState('now');
+  const [scheduledDate, setScheduledDate] = useState(null);
+  const [scheduledHour, setScheduledHour] = useState(null);
+
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
@@ -48,11 +55,24 @@ export default function NewDeliveryScreen({ navigation }) {
     });
   };
 
+  // Build the full ISO timestamp from selected day + hour (local time).
+  const scheduledPickupAt = useMemo(() => {
+    if (scheduleMode !== 'later' || scheduledDate == null || scheduledHour == null) return null;
+    const d = new Date(scheduledDate);
+    d.setHours(scheduledHour, 0, 0, 0);
+    return d;
+  }, [scheduleMode, scheduledDate, scheduledHour]);
+
+  // Server requires ≥1h lead time. Block submission if user picked a time
+  // that's already in the past or too soon.
+  const scheduleTooSoon = scheduledPickupAt && scheduledPickupAt.getTime() < Date.now() + 60 * 60 * 1000;
+
   const canQuote = pickup && dropoff;
   const canSubmit = canQuote
     && dropoffContactName.trim()
     && dropoffContactPhone.trim()
-    && quote;
+    && quote
+    && (scheduleMode === 'now' || (scheduledPickupAt && !scheduleTooSoon));
 
   const fetchQuote = async () => {
     if (!canQuote) return;
@@ -100,6 +120,7 @@ export default function NewDeliveryScreen({ navigation }) {
         priceOffered: quote.totalPrice,
         currency: quote.currency,
         promoCode: promoApplied?.code || undefined,
+        scheduledPickupAt: scheduledPickupAt ? scheduledPickupAt.toISOString() : undefined,
       },
       quote,
       promoPreview: promoApplied || null,
@@ -183,6 +204,76 @@ export default function NewDeliveryScreen({ navigation }) {
           <Field label={t('newDelivery.dropNotes', lang)}>
             <TextInput value={dropoffNotes} onChangeText={setDropoffNotes} style={[s.input, s.multiline]} multiline placeholder={t('newDelivery.dropNotesPh', lang)} placeholderTextColor={C.subtle} />
           </Field>
+        </Section>
+
+        <Section title={t('newDelivery.schedule', lang)}>
+          <View style={s.urgencyRow}>
+            <TouchableOpacity
+              style={[s.urgencyCard, scheduleMode === 'now' && s.urgencyCardActive]}
+              onPress={() => { setScheduleMode('now'); setScheduledDate(null); setScheduledHour(null); }}
+            >
+              <Text style={[s.urgencyLabel, scheduleMode === 'now' && { color: C.forest }]}>{t('newDelivery.scheduleNow', lang)}</Text>
+              <Text style={[s.urgencySub, scheduleMode === 'now' && { color: C.forest }]}>{t('newDelivery.scheduleNowSub', lang)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.urgencyCard, scheduleMode === 'later' && s.urgencyCardActive]}
+              onPress={() => setScheduleMode('later')}
+            >
+              <Text style={[s.urgencyLabel, scheduleMode === 'later' && { color: C.forest }]}>{t('newDelivery.scheduleLater', lang)}</Text>
+              <Text style={[s.urgencySub, scheduleMode === 'later' && { color: C.forest }]}>{t('newDelivery.scheduleLaterSub', lang)}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {scheduleMode === 'later' && (
+            <>
+              <Field label={t('newDelivery.pickDay', lang)}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                  {Array.from({ length: 30 }).map((_, i) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + i);
+                    d.setHours(0, 0, 0, 0);
+                    const ms = d.getTime();
+                    const active = scheduledDate === ms;
+                    const label = i === 0 ? t('newDelivery.day.today', lang)
+                      : i === 1 ? t('newDelivery.day.tomorrow', lang)
+                      : d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+                    return (
+                      <TouchableOpacity key={ms} style={[s.pill, active && s.pillActive]} onPress={() => setScheduledDate(ms)}>
+                        <Text style={[s.pillText, active && s.pillTextActive]}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </Field>
+
+              <Field label={t('newDelivery.pickTime', lang)}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                  {Array.from({ length: 17 }).map((_, i) => {
+                    const hour = 6 + i; // 06:00 to 22:00
+                    const active = scheduledHour === hour;
+                    return (
+                      <TouchableOpacity key={hour} style={[s.pill, active && s.pillActive]} onPress={() => setScheduledHour(hour)}>
+                        <Text style={[s.pillText, active && s.pillTextActive]}>{String(hour).padStart(2, '0')}:00</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </Field>
+
+              {scheduledPickupAt && (
+                <View style={{ marginTop: 12, padding: 12, backgroundColor: C.cream, borderRadius: 8, borderWidth: 1, borderColor: scheduleTooSoon ? C.red : C.border }}>
+                  <Text style={{ fontSize: 11, color: C.muted, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>{t('newDelivery.scheduledFor', lang)}</Text>
+                  <Text style={{ fontSize: 15, color: scheduleTooSoon ? C.red : C.forest, fontWeight: '600', marginTop: 4 }}>
+                    {scheduledPickupAt.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  {scheduleTooSoon && (
+                    <Text style={{ fontSize: 12, color: C.red, marginTop: 4 }}>{t('newDelivery.scheduleHint', lang).split('.')[0]} ({lang === 'fr' ? '1 h minimum' : '1h minimum'})</Text>
+                  )}
+                </View>
+              )}
+              <Text style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 15 }}>{t('newDelivery.scheduleHint', lang)}</Text>
+            </>
+          )}
         </Section>
 
         <Section title={t('newDelivery.package', lang)}>

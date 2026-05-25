@@ -6,7 +6,7 @@ const userStatusEnum = pgEnum('user_status', ['PENDING', 'ACTIVE', 'SUSPENDED', 
 const verificationStatusEnum = pgEnum('verification_status', ['PENDING', 'APPROVED', 'REJECTED']);
 const vehicleTypeEnum = pgEnum('vehicle_type', ['BICYCLE', 'MOTORCYCLE', 'CAR', 'VAN', 'TRUCK', 'TRICYCLE']);
 const jobStatusEnum = pgEnum('job_status', [
-  'DRAFT', 'AWAITING_PAYMENT', 'POSTED', 'MATCHED',
+  'DRAFT', 'AWAITING_PAYMENT', 'SCHEDULED', 'POSTED', 'MATCHED',
   'IN_TRANSIT', 'DELIVERED', 'COMPLETED',
   'CANCELLED', 'DISPUTED', 'EXPIRED'
 ]);
@@ -348,6 +348,12 @@ const jobs = pgTable('jobs', {
 
   // Timing
   scheduledPickupAt: timestamp('scheduled_pickup_at'),
+  scheduledWindowEnd: timestamp('scheduled_window_end'),
+  isRecurring: boolean('is_recurring').default(false),
+  recurrenceRule: text('recurrence_rule'),
+  recurrenceParentId: uuid('recurrence_parent_id'),
+  preclaimedAt: timestamp('preclaimed_at'),
+  promotedAt: timestamp('promoted_at'),
   estimatedDurationMins: integer('estimated_duration_mins'),
   estimatedDistanceKm: decimal('estimated_distance_km', { precision: 6, scale: 2 }),
   matchedAt: timestamp('matched_at'),
