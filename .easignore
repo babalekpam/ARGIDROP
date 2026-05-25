@@ -1,0 +1,37 @@
+.local/
+.cache/
+.config/
+.git/
+.upm/
+node_modules/
+
+web/
+backend/
+attached_assets/
+screenshots/
+exports/
+
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/build/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/.gradle/
+
+*.log
+.DS_Store
+
+# Secrets — must mirror mobile/.gitignore since .easignore overrides .gitignore for EAS
+.env
+.env.*
+mobile/.env
+mobile/.env.*
+credentials/
+mobile/credentials/
+*.p8
+
+# Misc non-mobile artifacts
+argidrop/
+*.zip
+*.tar.gz
