@@ -175,7 +175,7 @@ const drivers = pgTable('drivers', {
   currentLat: decimal('current_lat', { precision: 10, scale: 7 }),
   currentLng: decimal('current_lng', { precision: 10, scale: 7 }),
   lastLocationAt: timestamp('last_location_at'),
-  trustScore: decimal('trust_score', { precision: 4, scale: 2 }).default('100.00'),
+  trustScore: decimal('trust_score', { precision: 5, scale: 2 }).default('100.00'),
   rating: decimal('rating', { precision: 3, scale: 2 }).default('0.00'),
   ratingCount: integer('rating_count').default(0),
   completionRate: decimal('completion_rate', { precision: 5, scale: 2 }).default('100.00'),
