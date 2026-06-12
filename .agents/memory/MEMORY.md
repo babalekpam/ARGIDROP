@@ -1,1 +1,2 @@
 - [External branch merge](external-branch-merge.md) — raw git merge is blocked; union branches at the file level via read-only `git show` + hand-applied diffs.
+- [ArgiDrop production VPS deploy](vps-production-deploy.md) — live site is a shared Plesk VPS via VPS_SSH_*, not the Replit deploy; backend pm2 'argidrop-api' on PORT 3040, web served from /opt/argidrop/web/dist.
