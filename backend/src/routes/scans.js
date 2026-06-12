@@ -252,6 +252,16 @@ router.post('/delivery', authenticate, requireRole('DRIVER'), async (req, res, n
     io.to(`job:${jobId}`).emit('job:status_change', { jobId, status: 'DELIVERED', deliveredAt: new Date() });
     io.to(`business:${job.businessId}`).emit('job:delivered', { jobId });
 
+    // Sync driver level (gamification) — fire-and-forget, never blocks the response
+    if (job.driverId) {
+      const { recordCompletedTrip } = require('../services/driverLevel');
+      recordCompletedTrip(job.driverId).then((lvl) => {
+        if (lvl?.promoted) {
+          io.to(`driver:${job.driverId}`).emit('driver:level_up', { level: lvl.level });
+        }
+      }).catch(() => {});
+    }
+
     // SMS + push business
     const [business] = await db.select({ biz: businesses, user: users }).from(businesses)
       .leftJoin(users, eq(businesses.userId, users.id))
