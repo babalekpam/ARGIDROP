@@ -48,6 +48,20 @@ const walletTxTypeEnum = pgEnum('wallet_tx_type', ['DEPOSIT', 'HOLD', 'RELEASE',
 const driverPayoutStatusEnum = pgEnum('driver_payout_status', ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED']);
 const driverPayoutTriggerEnum = pgEnum('driver_payout_trigger', ['END_SHIFT', 'NIGHTLY_AUTO', 'ADMIN_MANUAL']);
 
+// ─── DRIVER LEVEL (gamification — YANGO/GOZEM style) ───
+const driverLevelEnum = pgEnum('driver_level', ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']);
+
+// ─── FOOD DELIVERY ENUMS ───
+const foodOrderStatusEnum = pgEnum('food_order_status', [
+  'PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP',
+  'PICKED_UP', 'DELIVERED', 'CANCELLED', 'REFUNDED',
+]);
+const restaurantStatusEnum = pgEnum('restaurant_status', ['PENDING', 'ACTIVE', 'SUSPENDED', 'CLOSED']);
+
+// ─── CORPORATE ACCOUNT ENUMS ───
+const corporateAccountStatusEnum = pgEnum('corporate_account_status', ['ACTIVE', 'SUSPENDED', 'CLOSED']);
+const corporateBillingCycleEnum = pgEnum('corporate_billing_cycle', ['WEEKLY', 'BIWEEKLY', 'MONTHLY']);
+
 // ─── M6 GROWTH ENGINE ENUMS ───
 const referralStatusEnum = pgEnum('referral_status', ['PENDING', 'QUALIFIED', 'PAID', 'VOID']);
 const promoStatusEnum = pgEnum('promo_status', ['ACTIVE', 'PAUSED', 'EXPIRED']);
@@ -193,6 +207,13 @@ const drivers = pgTable('drivers', {
   shiftStartedAt: timestamp('shift_started_at'),
   shiftEndedAt: timestamp('shift_ended_at'),
   isEliteBadge: boolean('is_elite_badge').default(false),
+  level: driverLevelEnum('level').default('BRONZE'),
+  levelUpdatedAt: timestamp('level_updated_at'),
+  // Bonus percentage on top of standard payout (0 / 3 / 6 / 10 for Bronze/Silver/Gold/Platinum)
+  levelBonusPct: decimal('level_bonus_pct', { precision: 4, scale: 2 }).default('0.00'),
+  // Platform accident insurance — enabled at Gold+ level
+  hasAccidentInsurance: boolean('has_accident_insurance').default(false),
+  totalRidesAllTime: integer('total_rides_all_time').default(0), // includes both deliveries & rides
   // KYC fields
   selfieUrl: text('selfie_url'),
   selfieWithIdUrl: text('selfie_with_id_url'),
@@ -252,7 +273,7 @@ const zones = pgTable('zones', {
   launchedAt: timestamp('launched_at'),
   adminUserId: uuid('admin_user_id').references(() => users.id),
   surgeMultiplier: decimal('surge_multiplier', { precision: 3, scale: 2 }).default('1.00'),
-  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('18.00'),
+  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('15.00'),
   minimumDeliveryPrice: decimal('minimum_delivery_price', { precision: 10, scale: 2 }),
   // Per-market referral economics — defaults are conservative XOF amounts.
   // Driver reward credits to pendingEarnings; merchant reward becomes a
@@ -635,7 +656,7 @@ const deliveryPricing = pgTable('delivery_pricing', {
   peakHoursStart3: integer('peak_hours_start_3').default(17),  // 5pm
   peakHoursEnd3: integer('peak_hours_end_3').default(20),      // 8pm
   // Commission
-  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('18.00'),
+  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('15.00'),
   isActive: boolean('is_active').default(true),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -722,18 +743,197 @@ const promoRedemptions = pgTable('promo_redemptions', {
   oneRedemptionPerJob: uniqueIndex('promo_redemptions_promo_job_unique').on(t.promoCodeId, t.jobId),
 }));
 
+// ─── DRIVER ACHIEVEMENTS (gamification badges) ───
+const driverAchievements = pgTable('driver_achievements', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  driverId: uuid('driver_id').references(() => drivers.id, { onDelete: 'cascade' }).notNull(),
+  // Badge types: FIRST_DELIVERY, STREAK_7, STREAK_30, TOP_RATED, FAST_RESPONSE,
+  //              CENTURY (100 deliveries), GOLD_LEVEL, PLATINUM_LEVEL, NIGHT_OWL, etc.
+  badgeType: text('badge_type').notNull(),
+  badgeName: text('badge_name').notNull(),
+  badgeNameFr: text('badge_name_fr'),
+  description: text('description'),
+  descriptionFr: text('description_fr'),
+  awardedAt: timestamp('awarded_at').defaultNow(),
+}, (t) => ({
+  oneBadgePerDriver: uniqueIndex('driver_achievements_driver_badge_unique').on(t.driverId, t.badgeType),
+}));
+
+// ─── RESTAURANTS (food delivery vertical — ArgiDrop Food) ───
+const restaurants = pgTable('restaurants', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id, { onDelete: 'cascade' }).notNull().unique(),
+  name: text('name').notNull(),
+  nameFr: text('name_fr'),
+  slug: text('slug').unique(),
+  description: text('description'),
+  descriptionFr: text('description_fr'),
+  cuisineTypes: jsonb('cuisine_types').default('[]'), // ['African', 'French', 'Fast Food']
+  logoUrl: text('logo_url'),
+  coverUrl: text('cover_url'),
+  address: text('address').notNull(),
+  city: text('city').notNull(),
+  country: text('country').default('TG'),
+  lat: decimal('lat', { precision: 10, scale: 7 }),
+  lng: decimal('lng', { precision: 10, scale: 7 }),
+  phone: text('phone'),
+  whatsapp: text('whatsapp'),
+  openingHours: jsonb('opening_hours').default('{}'),
+  averageDeliveryMins: integer('average_delivery_mins').default(35),
+  minimumOrderAmount: decimal('minimum_order_amount', { precision: 10, scale: 2 }).default('0.00'),
+  deliveryFeeOverride: decimal('delivery_fee_override', { precision: 8, scale: 2 }),
+  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).default('20.00'),
+  rating: decimal('rating', { precision: 3, scale: 2 }).default('0.00'),
+  ratingCount: integer('rating_count').default(0),
+  totalOrders: integer('total_orders').default(0),
+  isOnline: boolean('is_online').default(false),
+  isFeatured: boolean('is_featured').default(false),
+  status: restaurantStatusEnum('status').default('PENDING'),
+  zoneId: uuid('zone_id').references(() => zones.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+const restaurantMenuItems = pgTable('restaurant_menu_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  nameFr: text('name_fr'),
+  description: text('description'),
+  descriptionFr: text('description_fr'),
+  category: text('category'), // 'Entrées', 'Plats', 'Boissons', 'Desserts'
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  imageUrl: text('image_url'),
+  isAvailable: boolean('is_available').default(true),
+  isPopular: boolean('is_popular').default(false),
+  preparationMins: integer('preparation_mins').default(15),
+  allergens: jsonb('allergens').default('[]'),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ─── FOOD ORDERS (ArgiDrop Food vertical) ───
+const foodOrders = pgTable('food_orders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id).notNull(),
+  // customerId = the user who placed the order (can be BUSINESS or a future CONSUMER role)
+  customerId: uuid('customer_id').references(() => users.id).notNull(),
+  driverId: uuid('driver_id').references(() => drivers.id),
+  trackingToken: text('tracking_token').unique().notNull(),
+  status: foodOrderStatusEnum('status').default('PENDING'),
+  // Delivery address
+  deliveryAddress: text('delivery_address').notNull(),
+  deliveryLat: decimal('delivery_lat', { precision: 10, scale: 7 }),
+  deliveryLng: decimal('delivery_lng', { precision: 10, scale: 7 }),
+  deliveryNotes: text('delivery_notes'),
+  // Financials
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  deliveryFee: decimal('delivery_fee', { precision: 8, scale: 2 }).notNull(),
+  serviceFee: decimal('service_fee', { precision: 8, scale: 2 }).default('0.00'),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0.00'),
+  total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  // Payment
+  paymentProvider: paymentProviderEnum('payment_provider'),
+  paymentRef: text('payment_ref'),
+  paymentConfirmedAt: timestamp('payment_confirmed_at'),
+  cashOnDelivery: boolean('cash_on_delivery').default(false),
+  // Timing
+  estimatedPickupAt: timestamp('estimated_pickup_at'),
+  estimatedDeliveryAt: timestamp('estimated_delivery_at'),
+  confirmedAt: timestamp('confirmed_at'),
+  preparedAt: timestamp('prepared_at'),
+  pickedUpAt: timestamp('picked_up_at'),
+  deliveredAt: timestamp('delivered_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  zoneId: uuid('zone_id').references(() => zones.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+const foodOrderItems = pgTable('food_order_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').references(() => foodOrders.id, { onDelete: 'cascade' }).notNull(),
+  menuItemId: uuid('menu_item_id').references(() => restaurantMenuItems.id).notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  specialInstructions: text('special_instructions'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ─── CORPORATE ACCOUNTS (enterprise B2B — volume discounts, monthly invoicing) ───
+const corporateAccounts = pgTable('corporate_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id, { onDelete: 'cascade' }).notNull().unique(),
+  accountManagerId: uuid('account_manager_id').references(() => users.id), // internal ArgiDrop AM
+  contractRef: text('contract_ref').unique(),
+  commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }).notNull().default('10.00'),
+  billingCycle: corporateBillingCycleEnum('billing_cycle').default('MONTHLY'),
+  creditLimit: decimal('credit_limit', { precision: 14, scale: 2 }).default('0.00'),
+  currentCreditUsed: decimal('current_credit_used', { precision: 14, scale: 2 }).default('0.00'),
+  currency: text('currency').default('XOF'),
+  // Cash-on-delivery enabled for this corporate account
+  codEnabled: boolean('cod_enabled').default(false),
+  // API access for third-party integrations (e-commerce, ERP)
+  apiAccessEnabled: boolean('api_access_enabled').default(false),
+  apiKey: text('api_key').unique(),
+  // SLA guarantees (minutes)
+  slaMatchGuaranteeMins: integer('sla_match_guarantee_mins').default(20),
+  slaDeliveryGuaranteeMins: integer('sla_delivery_guarantee_mins'),
+  status: corporateAccountStatusEnum('status').default('ACTIVE'),
+  activatedAt: timestamp('activated_at').defaultNow(),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Corporate monthly invoices (consolidated billing)
+const corporateInvoices = pgTable('corporate_invoices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  corporateAccountId: uuid('corporate_account_id').references(() => corporateAccounts.id, { onDelete: 'cascade' }).notNull(),
+  invoiceNumber: text('invoice_number').unique().notNull(),
+  periodStart: timestamp('period_start').notNull(),
+  periodEnd: timestamp('period_end').notNull(),
+  deliveriesCount: integer('deliveries_count').default(0),
+  grossAmount: decimal('gross_amount', { precision: 14, scale: 2 }).notNull(),
+  commissionAmount: decimal('commission_amount', { precision: 14, scale: 2 }).notNull(),
+  netAmount: decimal('net_amount', { precision: 14, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  status: text('status').default('DRAFT'), // DRAFT | SENT | PAID | OVERDUE | VOID
+  sentAt: timestamp('sent_at'),
+  paidAt: timestamp('paid_at'),
+  dueAt: timestamp('due_at'),
+  pdfUrl: text('pdf_url'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 module.exports = {
+  // Enums
   userRoleEnum, userStatusEnum, verificationStatusEnum, vehicleTypeEnum,
   jobStatusEnum, jobUrgencyEnum, bidStatusEnum, paymentStatusEnum,
   paymentProviderEnum, docTypeEnum, disputeStatusEnum, scanTypeEnum,
   walletTxTypeEnum, merchantTierEnum, listingStatusEnum, listingTypeEnum,
   driverPayoutStatusEnum, driverPayoutTriggerEnum,
   referralStatusEnum, promoStatusEnum, promoDiscountTypeEnum, promoRoleScopeEnum,
+  driverLevelEnum, foodOrderStatusEnum, restaurantStatusEnum,
+  corporateAccountStatusEnum, corporateBillingCycleEnum,
+  // Core tables
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
   jobs, qrScanEvents, jobBids, jobStops, driverLocations,
   payments, ratings, messages, notifications, disputes, platformSettings,
   driverPayouts,
+  // Marketplace & merchant
   merchantSubscriptions, merchantListings, listingPhotos, merchantProfiles, deliveryPricing,
+  // Growth engine
   referralCodes, referrals, promoCodes, promoRedemptions,
+  // Gamification
+  driverAchievements,
+  // Food delivery vertical
+  restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
+  // Corporate / enterprise
+  corporateAccounts, corporateInvoices,
 };

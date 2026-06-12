@@ -89,6 +89,8 @@ app.use('/api/v1/listings', listingsRoutes);
 app.use('/api/v1/pricing', pricingRoutes);
 app.use('/api/v1/promo', require('./src/routes/promo'));
 app.use('/api/v1/referrals', require('./src/routes/referrals'));
+app.use('/api/v1/food', require('./src/routes/food'));
+app.use('/api/v1/corporate', require('./src/routes/corporate'));
 
 // Serve the built web app (production). When web/dist exists, all non-API
 // requests fall through to the SPA's index.html so client-side routing works.
