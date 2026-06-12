@@ -115,7 +115,7 @@ router.post('/order', authenticate, async (req, res) => {
 
     if (!pickupAddress || pickupLat == null || pickupLng == null || !pickupPhone ||
         !dropoffAddress || dropoffLat == null || dropoffLng == null || !dropoffPhone ||
-        !packageType || weightKg == null || !urgency || !paymentMethod) {
+        !packageType || weightKg == null || !urgency) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -152,14 +152,13 @@ router.post('/order', authenticate, async (req, res) => {
         packageDescription: packageDescription || null,
         weightKg: String(weightKg),
         urgency,
-        paymentMethod,
         cashOnDelivery: cashOnDelivery || false,
         notes: notes || null,
-        estimatedPrice: total,
+        priceOffered: String(total),
         currency: 'XOF',
         status: 'PENDING',
         trackingToken,
-        consumerSurcharge: consumerFee,
+        consumerSurcharge: String(consumerFee),
         isConsumerOrder: true,
       })
       .returning();
