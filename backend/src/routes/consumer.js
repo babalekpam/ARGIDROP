@@ -1,89 +1,101 @@
 /**
- * ArgiDrop B2C Consumer Delivery
- * Individual senders — any authenticated user can place a delivery order.
- * A 5 % "consumer fee" is applied on top of the base delivery rate.
+ * ArgiDrop Consumer Delivery — B2C individual senders
+ *
+ * Any authenticated user can post a consumer delivery.
+ * Price includes a 5% "consumer fee" on top of the normal rate.
+ * Jobs are created under a platform-configured CONSUMER_POOL business.
  */
 
-import { Router } from 'express';
-import crypto from 'crypto';
-import { eq, and, desc } from 'drizzle-orm';
-import { getDB } from '../config/database.js';
-import { authenticate } from '../middleware/auth.js';
-import { jobs, businesses, platformSettings, payments } from '../schema.js';
+const express = require('express');
+const crypto = require('crypto');
+const { eq, desc } = require('drizzle-orm');
+const { getDB } = require('../config/database');
+const { authenticate } = require('../middleware/auth');
+const { jobs, platformSettings } = require('../schema');
 
-const router = Router();
+const router = express.Router();
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-const CONSUMER_FEE_PCT = 5; // 5 % consumer surcharge
-const BASE_DELIVERY = 500;  // XOF
-const PER_KM_RATE = 150;    // XOF/km
+// ── Constants ──────────────────────────────────────────────────────────────
+const BASE_FARE_XOF = 500;
+const RATE_PER_KM_XOF = 150;
+const CONSUMER_FEE_PCT = 0.05;
 
-// Package weight tiers (XOF extra)
-const WEIGHT_SURCHARGE = (weightKg) => {
-  if (weightKg <= 1) return 0;
-  if (weightKg <= 5) return 200;
-  if (weightKg <= 15) return 500;
-  return 1000;
-};
+const PACKAGE_TYPES = ['DOCUMENT', 'SMALL_PARCEL', 'MEDIUM_PARCEL', 'LARGE_PARCEL', 'FOOD', 'FRAGILE'];
+const URGENCY_LEVELS = ['STANDARD', 'EXPRESS', 'URGENT'];
+const URGENCY_MULTIPLIER = { STANDARD: 1.0, EXPRESS: 1.3, URGENT: 1.6 };
 
-// Urgency multiplier
-const URGENCY_MULTIPLIER = {
-  STANDARD: 1.0,
-  EXPRESS: 1.4,
-  SAME_DAY: 1.2,
-};
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function distanceKm(lat1, lng1, lat2, lng2) {
-  return Math.sqrt(Math.pow(lat1 - lat2, 2) + Math.pow(lng1 - lng2, 2)) * 111;
+function calcDistanceKm(lat1, lng1, lat2, lng2) {
+  const dLat = lat1 - lat2;
+  const dLng = lng1 - lng2;
+  return Math.sqrt(dLat * dLat + dLng * dLng) * 111;
 }
 
-function calcPrice(fromLat, fromLng, toLat, toLng, weightKg = 0, urgency = 'STANDARD') {
-  const distKm = distanceKm(
-    parseFloat(fromLat),
-    parseFloat(fromLng),
-    parseFloat(toLat),
-    parseFloat(toLng)
-  );
-  const multiplier = URGENCY_MULTIPLIER[urgency] ?? 1.0;
-  const basePrice = (BASE_DELIVERY + PER_KM_RATE * distKm + WEIGHT_SURCHARGE(parseFloat(weightKg))) * multiplier;
-  const consumerFee = basePrice * (CONSUMER_FEE_PCT / 100);
-  const totalPrice = basePrice + consumerFee;
-  return {
-    distKm: +distKm.toFixed(2),
-    basePrice: Math.round(basePrice),
-    consumerFee: Math.round(consumerFee),
-    totalPrice: Math.round(totalPrice),
-  };
+function calcPrice(distanceKm, weightKg, urgency) {
+  const weightSurcharge = Math.max(0, (weightKg - 1)) * 50;
+  const urgencyMult = URGENCY_MULTIPLIER[urgency] || 1.0;
+  const base = (BASE_FARE_XOF + distanceKm * RATE_PER_KM_XOF + weightSurcharge) * urgencyMult;
+  const consumerFee = Math.round(base * CONSUMER_FEE_PCT);
+  const total = Math.round(base) + consumerFee;
+  return { base: Math.round(base), consumerFee, total };
 }
 
-// ---------------------------------------------------------------------------
-// POST /quote — no auth required
-// ---------------------------------------------------------------------------
+async function getConsumerPoolBusinessId(db) {
+  const [setting] = await db
+    .select()
+    .from(platformSettings)
+    .where(eq(platformSettings.key, 'CONSUMER_POOL_BUSINESS_ID'))
+    .limit(1);
+
+  if (!setting || !setting.value) {
+    throw new Error('CONSUMER_POOL_BUSINESS_ID not configured in platform_settings');
+  }
+  return setting.value;
+}
+
+// ── Routes ─────────────────────────────────────────────────────────────────
+
+// POST /quote — price estimate with consumer fee breakdown (no auth)
 router.post('/quote', async (req, res) => {
   try {
-    const { fromLat, fromLng, toLat, toLng, packageType, weightKg = 0, urgency = 'STANDARD' } = req.body;
+    const { fromLat, fromLng, toLat, toLng, packageType, weightKg, urgency } = req.body;
 
-    if (fromLat == null || fromLng == null || toLat == null || toLng == null) {
-      return res.status(400).json({ error: 'fromLat, fromLng, toLat, toLng are required' });
+    if (fromLat == null || fromLng == null || toLat == null || toLng == null ||
+        !packageType || weightKg == null || !urgency) {
+      return res.status(400).json({ error: 'fromLat, fromLng, toLat, toLng, packageType, weightKg, urgency are required' });
     }
 
-    const { distKm, basePrice, consumerFee, totalPrice } = calcPrice(fromLat, fromLng, toLat, toLng, weightKg, urgency);
+    if (!PACKAGE_TYPES.includes(packageType)) {
+      return res.status(400).json({ error: `packageType must be one of: ${PACKAGE_TYPES.join(', ')}` });
+    }
+
+    if (!URGENCY_LEVELS.includes(urgency)) {
+      return res.status(400).json({ error: `urgency must be one of: ${URGENCY_LEVELS.join(', ')}` });
+    }
+
+    const distanceKm = calcDistanceKm(parseFloat(fromLat), parseFloat(fromLng), parseFloat(toLat), parseFloat(toLng));
+    const { base, consumerFee, total } = calcPrice(distanceKm, parseFloat(weightKg), urgency);
 
     return res.json({
-      currency: 'XOF',
-      distanceKm: distKm,
-      basePrice,
-      consumerFeePct: CONSUMER_FEE_PCT,
-      consumerFee,
-      totalPrice,
-      packageType: packageType || null,
-      weightKg: parseFloat(weightKg),
-      urgency,
+      quote: {
+        distanceKm: Math.round(distanceKm * 100) / 100,
+        estimatedPrice: total,
+        currency: 'XOF',
+        breakdown: {
+          baseFare: BASE_FARE_XOF,
+          distanceFare: Math.round(distanceKm * RATE_PER_KM_XOF),
+          weightSurcharge: Math.round(Math.max(0, (parseFloat(weightKg) - 1)) * 50),
+          urgencyMultiplier: URGENCY_MULTIPLIER[urgency],
+          subtotal: base,
+          consumerFeePct: '5%',
+          consumerFee,
+          total,
+        },
+        packageType,
+        weightKg,
+        urgency,
+      },
     });
   } catch (err) {
     console.error('[consumer] /quote error:', err);
@@ -91,134 +103,106 @@ router.post('/quote', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /order — auth required (any role)
-// ---------------------------------------------------------------------------
+// POST /order — create consumer delivery job (auth required)
 router.post('/order', authenticate, async (req, res) => {
   try {
     const {
-      pickupAddress,
-      pickupLat,
-      pickupLng,
-      pickupPhone,
-      dropoffAddress,
-      dropoffLat,
-      dropoffLng,
-      dropoffPhone,
-      packageType = 'PARCEL',
-      packageDescription,
-      weightKg = 0,
-      urgency = 'STANDARD',
-      paymentMethod = 'CASH',
-      cashOnDelivery = false,
-      notes,
+      pickupAddress, pickupLat, pickupLng, pickupPhone,
+      dropoffAddress, dropoffLat, dropoffLng, dropoffPhone,
+      packageType, packageDescription, weightKg, urgency,
+      paymentMethod, cashOnDelivery, notes,
     } = req.body;
 
-    const required = { pickupAddress, pickupLat, pickupLng, pickupPhone, dropoffAddress, dropoffLat, dropoffLng, dropoffPhone };
-    const missing = Object.entries(required).filter(([, v]) => v == null || v === '').map(([k]) => k);
-    if (missing.length) {
-      return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+    if (!pickupAddress || pickupLat == null || pickupLng == null || !pickupPhone ||
+        !dropoffAddress || dropoffLat == null || dropoffLng == null || !dropoffPhone ||
+        !packageType || weightKg == null || !urgency || !paymentMethod) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!PACKAGE_TYPES.includes(packageType)) {
+      return res.status(400).json({ error: `packageType must be one of: ${PACKAGE_TYPES.join(', ')}` });
+    }
+
+    if (!URGENCY_LEVELS.includes(urgency)) {
+      return res.status(400).json({ error: `urgency must be one of: ${URGENCY_LEVELS.join(', ')}` });
     }
 
     const db = getDB();
+    const consumerPoolBusinessId = await getConsumerPoolBusinessId(db);
 
-    // Resolve CONSUMER_POOL_BUSINESS_ID from platform settings
-    const [poolSetting] = await db
-      .select()
-      .from(platformSettings)
-      .where(eq(platformSettings.key, 'CONSUMER_POOL_BUSINESS_ID'));
+    const distanceKm = calcDistanceKm(parseFloat(pickupLat), parseFloat(pickupLng), parseFloat(dropoffLat), parseFloat(dropoffLng));
+    const { base, consumerFee, total } = calcPrice(distanceKm, parseFloat(weightKg), urgency);
 
-    if (!poolSetting) {
-      return res.status(500).json({ error: 'Platform not configured: CONSUMER_POOL_BUSINESS_ID missing' });
-    }
+    const trackingToken = crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
 
-    const consumerPoolBusinessId = poolSetting.value;
-
-    const { distKm, basePrice, consumerFee, totalPrice } = calcPrice(
-      pickupLat, pickupLng, dropoffLat, dropoffLng, weightKg, urgency
-    );
-
-    const trackingToken = crypto.randomUUID();
-    const jobId = crypto.randomUUID();
-
-    // Insert job into the jobs table (same structure as business job)
     const [newJob] = await db
       .insert(jobs)
       .values({
-        id: jobId,
         businessId: consumerPoolBusinessId,
         createdByUserId: req.user.id,
         pickupAddress,
-        pickupLat: parseFloat(pickupLat),
-        pickupLng: parseFloat(pickupLng),
+        pickupLat: String(pickupLat),
+        pickupLng: String(pickupLng),
         pickupPhone,
         dropoffAddress,
-        dropoffLat: parseFloat(dropoffLat),
-        dropoffLng: parseFloat(dropoffLng),
+        dropoffLat: String(dropoffLat),
+        dropoffLng: String(dropoffLng),
         dropoffPhone,
         packageType,
         packageDescription: packageDescription || null,
-        weightKg: parseFloat(weightKg),
+        weightKg: String(weightKg),
         urgency,
         paymentMethod,
-        cashOnDelivery: Boolean(cashOnDelivery),
+        cashOnDelivery: cashOnDelivery || false,
         notes: notes || null,
+        estimatedPrice: total,
+        currency: 'XOF',
         status: 'PENDING',
         trackingToken,
-        basePrice,
-        consumerFee,
-        totalPrice,
-        currency: 'XOF',
-        distanceKm: distKm,
+        consumerSurcharge: consumerFee,
         isConsumerOrder: true,
-        createdAt: new Date(),
       })
       .returning();
 
     return res.status(201).json({
-      job: newJob,
+      order: newJob,
+      priceBreakdown: { subtotal: base, consumerFeePct: '5%', consumerFee, total, currency: 'XOF' },
       trackingToken,
-      estimatedPrice: totalPrice,
-      currency: 'XOF',
-      priceBreakdown: { basePrice, consumerFeePct: CONSUMER_FEE_PCT, consumerFee, totalPrice },
+      trackingUrl: `/track/${trackingToken}`,
     });
   } catch (err) {
     console.error('[consumer] /order error:', err);
+    if (err.message && err.message.includes('CONSUMER_POOL_BUSINESS_ID')) {
+      return res.status(503).json({ error: 'Consumer delivery service not configured. Please contact support.' });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /orders — auth required — list my consumer orders (last 20)
-// ---------------------------------------------------------------------------
+// GET /orders — my last 20 consumer orders (auth required)
 router.get('/orders', authenticate, async (req, res) => {
   try {
     const db = getDB();
     const myOrders = await db
       .select()
       .from(jobs)
-      .where(
-        and(
-          eq(jobs.createdByUserId, req.user.id),
-          eq(jobs.isConsumerOrder, true)
-        )
-      )
+      .where(eq(jobs.createdByUserId, req.user.id))
       .orderBy(desc(jobs.createdAt))
       .limit(20);
 
-    return res.json({ orders: myOrders, count: myOrders.length });
+    return res.json({ orders: myOrders, total: myOrders.length });
   } catch (err) {
     console.error('[consumer] /orders error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /orders/:trackingToken — no auth — public tracking
-// ---------------------------------------------------------------------------
+// GET /orders/:trackingToken — public tracking (no auth)
 router.get('/orders/:trackingToken', async (req, res) => {
   try {
+    const { trackingToken } = req.params;
     const db = getDB();
+
     const [job] = await db
       .select({
         id: jobs.id,
@@ -228,22 +212,16 @@ router.get('/orders/:trackingToken', async (req, res) => {
         dropoffAddress: jobs.dropoffAddress,
         packageType: jobs.packageType,
         urgency: jobs.urgency,
-        estimatedPrice: jobs.totalPrice,
+        estimatedPrice: jobs.estimatedPrice,
         currency: jobs.currency,
         createdAt: jobs.createdAt,
         updatedAt: jobs.updatedAt,
       })
       .from(jobs)
-      .where(
-        and(
-          eq(jobs.trackingToken, req.params.trackingToken),
-          eq(jobs.isConsumerOrder, true)
-        )
-      );
+      .where(eq(jobs.trackingToken, trackingToken))
+      .limit(1);
 
-    if (!job) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
+    if (!job) return res.status(404).json({ error: 'Order not found' });
 
     return res.json({ order: job });
   } catch (err) {
@@ -252,4 +230,4 @@ router.get('/orders/:trackingToken', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

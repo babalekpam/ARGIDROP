@@ -1,84 +1,122 @@
 /**
- * ArgiDrop Zone Manager Franchise — revenue sharing model.
- * TODO: migrate in-memory franchiseContracts and payoutLog Maps to DB table zone_franchise_contracts
+ * ArgiDrop Zone Manager Franchise — revenue sharing model
+ *
+ * TODO: Migrate franchiseContracts Map and payoutLog to DB tables:
+ *   zone_franchise_contracts
+ *   zone_franchise_payouts
  */
 
-import { Router } from 'express';
-import crypto from 'crypto';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
-import { getDB } from '../config/database.js';
-import { authenticate, requireRole } from '../middleware/auth.js';
-import { zones, payments, jobs, users } from '../schema.js';
+const express = require('express');
+const crypto = require('crypto');
+const { eq, and, gte, lte, sql } = require('drizzle-orm');
+const { getDB } = require('../config/database');
+const { authenticate, requireRole } = require('../middleware/auth');
+const { zones, payments, jobs, users } = require('../schema');
 
-const router = Router();
+const router = express.Router();
 
-// ---------------------------------------------------------------------------
-// In-memory stores (TODO: replace with DB tables)
-// ---------------------------------------------------------------------------
-const franchiseContracts = new Map(); // id → contract object
-const payoutLog = new Map();          // id → [ payout entries ]
+// ── In-memory stores (TODO: migrate to DB) ────────────────────────────────
+const franchiseContracts = new Map();
+const payoutLog = [];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 function generateContractRef() {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = crypto.randomBytes(3).toString('hex').toUpperCase();
-  return `FRC-${ts}-${rand}`;
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `FRC-${timestamp}-${random}`;
 }
 
-// ---------------------------------------------------------------------------
-// POST / — ADMIN — create franchise contract
-// ---------------------------------------------------------------------------
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function calcRevenueShare(db, contract, periodStart, periodEnd) {
+  const result = await db
+    .select({
+      totalRevenue: sql`COALESCE(SUM(${payments.amount}), 0)`.as('totalRevenue'),
+      totalCommission: sql`COALESCE(SUM(${payments.commissionAmount}), 0)`.as('totalCommission'),
+    })
+    .from(payments)
+    .innerJoin(jobs, eq(payments.jobId, jobs.id))
+    .where(
+      and(
+        eq(jobs.zoneId, contract.zoneId),
+        eq(payments.status, 'RELEASED'),
+        gte(payments.createdAt, new Date(periodStart)),
+        lte(payments.createdAt, new Date(periodEnd))
+      )
+    );
+
+  const periodRevenue = Number(result[0]?.totalRevenue || 0);
+  const commissionEarned = Number(result[0]?.totalCommission || 0);
+  const revenueShare = Math.round((commissionEarned * contract.revenueSharePct) / 100);
+
+  const alreadyPaid = payoutLog
+    .filter(p =>
+      p.contractId === contract.id &&
+      p.periodStart === periodStart &&
+      p.periodEnd === periodEnd &&
+      p.status === 'PAID'
+    )
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const pendingPayout = Math.max(0, revenueShare - alreadyPaid);
+  return { periodRevenue, commissionEarned, revenueShare, pendingPayout, alreadyPaid };
+}
+
+// ── Routes ─────────────────────────────────────────────────────────────────
+
+// POST / — ADMIN: create franchise contract
 router.post('/', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     const {
-      zoneManagerUserId,
-      zoneId,
-      revenueSharePct = 5,
-      monthlyTarget,
-      contractStart,
-      contractEnd,
+      zoneManagerUserId, zoneId, revenueSharePct = 5,
+      monthlyTarget, contractStart, contractEnd,
     } = req.body;
 
-    const required = { zoneManagerUserId, zoneId, monthlyTarget, contractStart, contractEnd };
-    const missing = Object.entries(required).filter(([, v]) => v == null || v === '').map(([k]) => k);
-    if (missing.length) {
-      return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+    if (!zoneManagerUserId || !zoneId || !contractStart || !contractEnd) {
+      return res.status(400).json({ error: 'zoneManagerUserId, zoneId, contractStart, contractEnd are required' });
+    }
+
+    if (revenueSharePct < 0 || revenueSharePct > 100) {
+      return res.status(400).json({ error: 'revenueSharePct must be between 0 and 100' });
     }
 
     const db = getDB();
 
-    // Validate zone exists
-    const [zone] = await db.select().from(zones).where(eq(zones.id, zoneId));
+    const [zone] = await db.select().from(zones).where(eq(zones.id, zoneId)).limit(1);
     if (!zone) return res.status(404).json({ error: 'Zone not found' });
 
-    // Validate manager user exists
-    const [manager] = await db.select().from(users).where(eq(users.id, zoneManagerUserId));
+    const [manager] = await db.select().from(users).where(eq(users.id, zoneManagerUserId)).limit(1);
     if (!manager) return res.status(404).json({ error: 'Zone manager user not found' });
+    if (manager.role !== 'ZONE_MANAGER') return res.status(400).json({ error: 'User does not have ZONE_MANAGER role' });
 
-    const contractId = crypto.randomUUID();
-    const contractRef = generateContractRef();
+    const existingActive = Array.from(franchiseContracts.values()).find(
+      c => c.zoneId === zoneId && c.status === 'ACTIVE'
+    );
+    if (existingActive) {
+      return res.status(409).json({ error: 'Active franchise contract already exists for this zone', existingContractId: existingActive.id });
+    }
 
     const contract = {
-      id: contractId,
-      contractRef,
+      id: crypto.randomUUID(),
+      contractRef: generateContractRef(),
       zoneManagerUserId,
       zoneId,
-      zoneName: zone.name,
-      managerName: manager.name || manager.email,
-      revenueSharePct: parseFloat(revenueSharePct),
-      monthlyTarget: parseFloat(monthlyTarget),
-      contractStart: new Date(contractStart).toISOString(),
-      contractEnd: new Date(contractEnd).toISOString(),
+      revenueSharePct: Number(revenueSharePct),
+      monthlyTarget: monthlyTarget ? Number(monthlyTarget) : null,
+      contractStart,
+      contractEnd,
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
-      createdByUserId: req.user.id,
+      createdByAdminId: req.user.id,
     };
 
-    franchiseContracts.set(contractId, contract);
-    payoutLog.set(contractId, []);
-
+    franchiseContracts.set(contract.id, contract);
     return res.status(201).json({ contract });
   } catch (err) {
     console.error('[franchise] POST / error:', err);
@@ -86,78 +124,23 @@ router.post('/', authenticate, requireRole('ADMIN'), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET / — ADMIN — list all franchise contracts
-// ---------------------------------------------------------------------------
-router.get('/', authenticate, requireRole('ADMIN'), (req, res) => {
-  try {
-    const contracts = [...franchiseContracts.values()].sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
-    return res.json({ contracts, count: contracts.length });
-  } catch (err) {
-    console.error('[franchise] GET / error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// GET /me — ZONE_MANAGER auth — my contract + current month revenue share
-// ---------------------------------------------------------------------------
+// GET /me — ZONE_MANAGER: own contract + current month share (registered before /:id)
 router.get('/me', authenticate, requireRole('ZONE_MANAGER'), async (req, res) => {
   try {
-    const contract = [...franchiseContracts.values()].find(
+    const contract = Array.from(franchiseContracts.values()).find(
       c => c.zoneManagerUserId === req.user.id && c.status === 'ACTIVE'
     );
 
-    if (!contract) {
-      return res.status(404).json({ error: 'No active franchise contract found for your account' });
-    }
-
-    // Current month boundaries
-    const now = new Date();
-    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    if (!contract) return res.status(404).json({ error: 'No active franchise contract found for your account' });
 
     const db = getDB();
-
-    // Sum released payments for jobs in this zone within the current month
-    const [revenueRow] = await db
-      .select({ total: sql`COALESCE(SUM(${payments.amount}), 0)` })
-      .from(payments)
-      .innerJoin(jobs, eq(jobs.id, payments.jobId))
-      .where(
-        and(
-          eq(jobs.zoneId, contract.zoneId),
-          eq(payments.status, 'RELEASED'),
-          gte(payments.createdAt, new Date(periodStart)),
-          lte(payments.createdAt, new Date(periodEnd))
-        )
-      );
-
-    const periodRevenue = parseFloat(revenueRow?.total ?? 0);
-    // Platform commission is assumed to be stored in payments.platformFee; fall back to 10 % of revenue
-    const commissionEarned = periodRevenue * 0.10;
-    const revenueShare = commissionEarned * (contract.revenueSharePct / 100);
-
-    const payouts = payoutLog.get(contract.id) || [];
-    const paidOut = payouts
-      .filter(p => p.periodStart === periodStart)
-      .reduce((sum, p) => sum + p.amount, 0);
-    const pendingPayout = Math.max(0, revenueShare - paidOut);
+    const [zone] = await db.select().from(zones).where(eq(zones.id, contract.zoneId)).limit(1);
+    const { start, end } = getCurrentMonthRange();
+    const revenueData = await calcRevenueShare(db, contract, start, end);
 
     return res.json({
-      contract,
-      currentMonth: {
-        periodStart,
-        periodEnd,
-        periodRevenue,
-        commissionEarned,
-        revenueSharePct: contract.revenueSharePct,
-        revenueShare,
-        paidOut,
-        pendingPayout,
-      },
+      contract: { ...contract, zone: zone || null },
+      currentMonth: { periodStart: start, periodEnd: end, ...revenueData, currency: 'XOF' },
     });
   } catch (err) {
     console.error('[franchise] GET /me error:', err);
@@ -165,9 +148,34 @@ router.get('/me', authenticate, requireRole('ZONE_MANAGER'), async (req, res) =>
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /:id/revenue — ADMIN — calculate revenue share for a period
-// ---------------------------------------------------------------------------
+// GET / — ADMIN: list all contracts
+router.get('/', authenticate, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const db = getDB();
+    const allContracts = Array.from(franchiseContracts.values()).sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    const enriched = await Promise.all(
+      allContracts.map(async (contract) => {
+        const [zone] = await db.select().from(zones).where(eq(zones.id, contract.zoneId)).limit(1);
+        const [manager] = await db
+          .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
+          .from(users)
+          .where(eq(users.id, contract.zoneManagerUserId))
+          .limit(1);
+        return { ...contract, zone: zone || null, manager: manager || null };
+      })
+    );
+
+    return res.json({ contracts: enriched, total: enriched.length });
+  } catch (err) {
+    console.error('[franchise] GET / error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /:id/revenue — ADMIN: calculate revenue share for a period
 router.get('/:id/revenue', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     const contract = franchiseContracts.get(req.params.id);
@@ -175,47 +183,20 @@ router.get('/:id/revenue', authenticate, requireRole('ADMIN'), async (req, res) 
 
     const { periodStart, periodEnd } = req.query;
     if (!periodStart || !periodEnd) {
-      return res.status(400).json({ error: 'periodStart and periodEnd query params are required' });
+      return res.status(400).json({ error: 'periodStart and periodEnd query params are required (ISO 8601)' });
     }
 
     const db = getDB();
-
-    const [revenueRow] = await db
-      .select({ total: sql`COALESCE(SUM(${payments.amount}), 0)` })
-      .from(payments)
-      .innerJoin(jobs, eq(jobs.id, payments.jobId))
-      .where(
-        and(
-          eq(jobs.zoneId, contract.zoneId),
-          eq(payments.status, 'RELEASED'),
-          gte(payments.createdAt, new Date(periodStart)),
-          lte(payments.createdAt, new Date(periodEnd))
-        )
-      );
-
-    const periodRevenue = parseFloat(revenueRow?.total ?? 0);
-    const commissionEarned = periodRevenue * 0.10; // 10 % platform commission
-    const revenueShare = commissionEarned * (contract.revenueSharePct / 100);
-
-    const payouts = payoutLog.get(contract.id) || [];
-    const paidOut = payouts
-      .filter(p => p.periodStart === periodStart && p.periodEnd === periodEnd)
-      .reduce((sum, p) => sum + p.amount, 0);
-    const pendingPayout = Math.max(0, revenueShare - paidOut);
+    const revenueData = await calcRevenueShare(db, contract, periodStart, periodEnd);
 
     return res.json({
       contractId: contract.id,
       contractRef: contract.contractRef,
       zoneId: contract.zoneId,
-      zoneName: contract.zoneName,
+      revenueSharePct: contract.revenueSharePct,
       periodStart,
       periodEnd,
-      periodRevenue,
-      commissionEarned,
-      revenueSharePct: contract.revenueSharePct,
-      revenueShare,
-      paidOut,
-      pendingPayout,
+      ...revenueData,
       currency: 'XOF',
     });
   } catch (err) {
@@ -224,43 +205,50 @@ router.get('/:id/revenue', authenticate, requireRole('ADMIN'), async (req, res) 
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /:id/payout — ADMIN — mark revenue share as paid out
-// ---------------------------------------------------------------------------
+// POST /:id/payout — ADMIN: record payout
 router.post('/:id/payout', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     const contract = franchiseContracts.get(req.params.id);
     if (!contract) return res.status(404).json({ error: 'Franchise contract not found' });
 
-    const { amount, periodStart, periodEnd, paymentReference, notes } = req.body;
-    if (amount == null || !periodStart || !periodEnd) {
-      return res.status(400).json({ error: 'amount, periodStart, periodEnd are required' });
+    const { periodStart, periodEnd, amount, paymentReference, notes } = req.body;
+
+    if (!periodStart || !periodEnd || amount == null) {
+      return res.status(400).json({ error: 'periodStart, periodEnd, and amount are required' });
+    }
+    if (amount <= 0) return res.status(400).json({ error: 'amount must be positive' });
+
+    const db = getDB();
+    const revenueData = await calcRevenueShare(db, contract, periodStart, periodEnd);
+
+    if (amount > revenueData.pendingPayout) {
+      return res.status(400).json({
+        error: `Amount exceeds pending payout. Pending: ${revenueData.pendingPayout} XOF`,
+        pendingPayout: revenueData.pendingPayout,
+      });
     }
 
-    const payoutEntry = {
+    const payout = {
       id: crypto.randomUUID(),
       contractId: contract.id,
-      contractRef: contract.contractRef,
       zoneManagerUserId: contract.zoneManagerUserId,
-      amount: parseFloat(amount),
-      currency: 'XOF',
       periodStart,
       periodEnd,
+      amount: Number(amount),
+      currency: 'XOF',
       paymentReference: paymentReference || null,
       notes: notes || null,
-      paidByUserId: req.user.id,
+      status: 'PAID',
       paidAt: new Date().toISOString(),
+      recordedByAdminId: req.user.id,
     };
 
-    const log = payoutLog.get(contract.id) || [];
-    log.push(payoutEntry);
-    payoutLog.set(contract.id, log);
-
-    return res.status(201).json({ payout: payoutEntry });
+    payoutLog.push(payout);
+    return res.status(201).json({ payout });
   } catch (err) {
     console.error('[franchise] POST /:id/payout error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-export default router;
+module.exports = router;

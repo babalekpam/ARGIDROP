@@ -6,12 +6,13 @@
  * once the schema is defined and migrated.
  */
 
-import express from 'express';
-import crypto from 'crypto';
-import { eq, and } from 'drizzle-orm';
-import { getDB } from '../config/database.js';
-import { authenticate, requireRole } from '../middleware/auth.js';
-import { drivers, users } from '../schema.js';
+const express = require('express');
+const crypto = require('crypto');
+const { eq, and } = require('drizzle-orm');
+const { getDB } = require('../config/database');
+const { getIO } = require('../socket');
+const { authenticate, requireRole } = require('../middleware/auth');
+const { drivers, users } = require('../schema');
 
 const router = express.Router();
 
@@ -198,8 +199,8 @@ router.post('/request', authenticate, async (req, res) => {
     rideRequests.set(rideRequest.id, rideRequest);
 
     // Emit socket event to driver if matched
-    if (driver && req.app.get('io')) {
-      const io = req.app.get('io');
+    const io = getIO();
+    if (driver && io) {
       io.to(`driver:${driver.userId}`).emit('ride:new_request', {
         rideRequestId: rideRequest.id,
         fromAddress,
@@ -298,8 +299,8 @@ router.post('/request/:id/accept', authenticate, requireRole('DRIVER'), async (r
     rideRequest.acceptedAt = new Date().toISOString();
     rideRequests.set(rideRequest.id, rideRequest);
 
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
+    const io = getIO(); if (io) {
+
       io.to(`passenger:${rideRequest.passengerId}`).emit('ride:accepted', {
         rideRequestId: rideRequest.id,
         driverId: req.user.id,
@@ -337,8 +338,8 @@ router.post('/request/:id/start', authenticate, requireRole('DRIVER'), async (re
     rideRequest.startedAt = new Date().toISOString();
     rideRequests.set(rideRequest.id, rideRequest);
 
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
+    const io = getIO(); if (io) {
+
       io.to(`passenger:${rideRequest.passengerId}`).emit('ride:started', {
         rideRequestId: rideRequest.id,
         startedAt: rideRequest.startedAt,
@@ -378,8 +379,8 @@ router.post('/request/:id/complete', authenticate, requireRole('DRIVER'), async 
 
     // TODO: trigger payment release via payments service
 
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
+    const io = getIO(); if (io) {
+
       io.to(`passenger:${rideRequest.passengerId}`).emit('ride:completed', {
         rideRequestId: rideRequest.id,
         finalPrice: rideRequest.finalPrice,
@@ -435,8 +436,8 @@ router.post('/request/:id/cancel', authenticate, async (req, res) => {
 
     // TODO: trigger partial refund via payments service based on refundPct
 
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
+    const io = getIO(); if (io) {
+
       const payload = {
         rideRequestId: rideRequest.id,
         cancelledBy: req.user.id,
@@ -483,4 +484,4 @@ router.get('/requests/me', authenticate, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
