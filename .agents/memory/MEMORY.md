@@ -1,0 +1,1 @@
+- [External branch merge](external-branch-merge.md) — raw git merge is blocked; union branches at the file level via read-only `git show` + hand-applied diffs.

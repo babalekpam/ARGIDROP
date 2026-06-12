@@ -191,7 +191,7 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       // never penalized for a promo. driverBonus is added on top. The
       // commission therefore absorbs the discount + bonus (can go negative for
       // a marketing-funded campaign — accepted on the books for MVP).
-      const commissionRate = 18;
+      const commissionRate = 15;
       const driverPayout = +(originalPrice * (1 - commissionRate / 100) + driverBonusAmount).toFixed(2);
       const commissionAmount = +(chargedAmount - driverPayout).toFixed(2);
       await db.insert(payments).values({

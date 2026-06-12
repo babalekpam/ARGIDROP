@@ -23,7 +23,7 @@ const DEFAULT_PRICING = {
   peakHoursStart1: 7, peakHoursEnd1: 9,
   peakHoursStart2: 12, peakHoursEnd2: 14,
   peakHoursStart3: 17, peakHoursEnd3: 20,
-  commissionRate: 18,
+  commissionRate: 15,
   currency: 'XOF',
 };
 
