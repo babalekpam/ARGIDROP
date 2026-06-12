@@ -89,8 +89,21 @@ app.use('/api/v1/listings', listingsRoutes);
 app.use('/api/v1/pricing', pricingRoutes);
 app.use('/api/v1/promo', require('./src/routes/promo'));
 app.use('/api/v1/referrals', require('./src/routes/referrals'));
+// ── Super-app verticals ──
 app.use('/api/v1/food', require('./src/routes/food'));
+app.use('/api/v1/rides', require('./src/routes/rides'));
+app.use('/api/v1/consumer', require('./src/routes/consumer'));
+// ── Enterprise & growth ──
 app.use('/api/v1/corporate', require('./src/routes/corporate'));
+app.use('/api/v1/franchise', require('./src/routes/franchise'));
+app.use('/api/v1/ecommerce', require('./src/routes/ecommerce'));
+// ── Loyalty & welfare ──
+app.use('/api/v1/loyalty', require('./src/routes/loyalty'));
+app.use('/api/v1/welfare', require('./src/routes/welfare'));
+// ── Intelligence ──
+app.use('/api/v1/heatmap', require('./src/routes/heatmap'));
+// ── Admin food management ──
+app.use('/api/v1/admin/food', require('./src/routes/adminFood'));
 
 // Serve the built web app (production). When web/dist exists, all non-API
 // requests fall through to the SPA's index.html so client-side routing works.
@@ -177,6 +190,8 @@ async function ensureSuperAdmin() {
     startNightlyPayouts();
     const { startNightlyReferrals } = require('./src/jobs/nightly-referrals');
     startNightlyReferrals();
+    const { scheduleSurgeUpdates } = require('./src/services/surge');
+    scheduleSurgeUpdates(io);
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ArgiDrop API on port ${PORT}`));
   } catch (err) {
     console.error('❌ Startup failed:', err);

@@ -5,12 +5,15 @@
 
 const express = require('express');
 const { eq, and, desc, ilike } = require('drizzle-orm');
-const { db } = require('../config/database');
+const { getDB } = require('../config/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const {
   restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
-  businesses, users, drivers,
+  businesses, users, drivers, zones,
 } = require('../schema');
+
+// Use getDB() pattern (consistent with rest of codebase)
+function db() { return getDB(); }
 
 const router = express.Router();
 
@@ -257,6 +260,129 @@ router.post('/:restaurantId/menu', authenticate, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to add menu item' });
+  }
+});
+
+// ─── RESTAURANT SELF-SERVICE ONBOARDING ────────────────────────────────────
+
+/**
+ * POST /food/restaurants/apply
+ * Any verified BUSINESS user can apply to become a restaurant partner.
+ * Creates a restaurant record in PENDING status for admin approval.
+ */
+router.post('/restaurants/apply', authenticate, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const d = getDB();
+    const [biz] = await d
+      .select()
+      .from(businesses)
+      .where(eq(businesses.userId, req.user.id))
+      .limit(1);
+
+    if (!biz) return res.status(404).json({ error: 'Business profile not found' });
+    if (biz.verificationStatus !== 'APPROVED') {
+      return res.status(403).json({ error: 'Business must be verified before applying as restaurant partner' });
+    }
+
+    // Check not already a restaurant
+    const [existing] = await d
+      .select({ id: restaurants.id, status: restaurants.status })
+      .from(restaurants)
+      .where(eq(restaurants.businessId, biz.id))
+      .limit(1);
+
+    if (existing) {
+      return res.status(409).json({ error: 'Your business already has a restaurant profile', status: existing.status });
+    }
+
+    const {
+      name, nameFr, description, descriptionFr, cuisineTypes,
+      address, city, country, phone, whatsapp,
+      openingHours, minimumOrderAmount, averageDeliveryMins,
+    } = req.body;
+
+    if (!name || !address || !city) {
+      return res.status(400).json({ error: 'name, address and city are required' });
+    }
+
+    const slug = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) + '-' + Date.now().toString(36);
+
+    const [restaurant] = await d.insert(restaurants).values({
+      businessId: biz.id,
+      name,
+      nameFr,
+      slug,
+      description,
+      descriptionFr,
+      cuisineTypes: cuisineTypes || [],
+      address,
+      city,
+      country: country || biz.country || 'TG',
+      phone: phone || biz.preferredMomoNumber,
+      whatsapp,
+      openingHours: openingHours || {},
+      minimumOrderAmount: parseFloat(minimumOrderAmount || 0).toFixed(2),
+      averageDeliveryMins: parseInt(averageDeliveryMins || 35),
+      status: 'PENDING',
+      isOnline: false,
+    }).returning();
+
+    res.status(201).json({
+      restaurant,
+      message: 'Application submitted. Our team will review and approve within 24 hours.',
+    });
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') return res.status(409).json({ error: 'Slug already taken, try a slightly different name' });
+    res.status(500).json({ error: 'Failed to submit restaurant application' });
+  }
+});
+
+/**
+ * GET /food/restaurants/mine — get the restaurant profile for the logged-in business
+ */
+router.get('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const d = getDB();
+    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    if (!biz) return res.status(404).json({ error: 'Business not found' });
+
+    const [restaurant] = await d.select().from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);
+    if (!restaurant) return res.status(404).json({ error: 'No restaurant profile found' });
+
+    const menu = await d.select().from(restaurantMenuItems).where(eq(restaurantMenuItems.restaurantId, restaurant.id)).orderBy(restaurantMenuItems.sortOrder);
+
+    res.json({ restaurant, menu });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch restaurant profile' });
+  }
+});
+
+/**
+ * PATCH /food/restaurants/mine — update own restaurant (name, hours, isOnline)
+ */
+router.patch('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const d = getDB();
+    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    if (!biz) return res.status(404).json({ error: 'Business not found' });
+
+    const [existing] = await d.select({ id: restaurants.id, status: restaurants.status }).from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: 'No restaurant profile found' });
+    if (existing.status !== 'ACTIVE') return res.status(403).json({ error: 'Restaurant must be approved before updating' });
+
+    const allowed = ['name', 'nameFr', 'description', 'descriptionFr', 'phone', 'whatsapp', 'openingHours', 'minimumOrderAmount', 'averageDeliveryMins', 'isOnline'];
+    const updates = { updatedAt: new Date() };
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    const [updated] = await d.update(restaurants).set(updates).where(eq(restaurants.id, existing.id)).returning();
+    res.json({ restaurant: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update restaurant' });
   }
 });
 
