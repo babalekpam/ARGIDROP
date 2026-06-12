@@ -378,6 +378,12 @@ const jobs = pgTable('jobs', {
 
   zoneId: uuid('zone_id').references(() => zones.id),
 
+  // Consumer (B2C) delivery fields
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  isConsumerOrder: boolean('is_consumer_order').default(false),
+  consumerSurcharge: decimal('consumer_surcharge', { precision: 10, scale: 2 }).default('0.00'),
+  cashOnDelivery: boolean('cash_on_delivery').default(false),
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
