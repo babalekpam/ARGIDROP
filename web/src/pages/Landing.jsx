@@ -45,7 +45,7 @@ function NavBar({ t }) {
         <img src="/argidrop-icon.png" alt="" style={{ width: 34, height: 34, borderRadius: 8, boxShadow: '0 2px 8px rgba(15,42,31,0.2)' }} />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
           <span style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 600, color: C.forest, letterSpacing: '-0.02em' }}>ArgiDrop</span>
-          <span style={{ fontSize: 9, color: C.bronze, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', background: '#F7EFE0', padding: '2px 6px', borderRadius: 3 }}>SUPER APP</span>
+          <span style={{ fontSize: 9, color: C.bronze, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', background: '#F7EFE0', padding: '2px 6px', borderRadius: 3 }}>TOUT-EN-UN</span>
         </div>
       </Link>
       <div style={{ display: 'flex', gap: 24, alignItems: 'center', fontSize: 13, color: C.muted }}>
@@ -83,7 +83,7 @@ function HeroSection({ t }) {
               {t('landing.hero.line3', 'avec ArgiDrop.')}
             </h1>
             <p style={{ fontSize: 18, lineHeight: 1.6, color: 'rgba(255,255,255,0.72)', maxWidth: 520, margin: '0 0 36px' }}>
-              {t('landing.hero.sub', 'Livraisons, repas, courses, paiements — tout dans une seule application. La super-app de livraison conçue pour l\'Afrique francophone.')}
+              {t('landing.hero.sub', 'Livraisons, repas, courses, paiements — tout dans une seule application. La plateforme de livraison tout-en-un conçue pour l\'Afrique francophone.')}
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 48 }}>
               <Link to="/register">
@@ -174,7 +174,7 @@ function ServicesSection({ t }) {
           <em style={{ color: C.forest, fontStyle: 'italic' }}>{t('landing.services.title2', 'avec ArgiDrop.')}</em>
         </h2>
         <p style={{ fontSize: 16, color: C.muted, maxWidth: 560, margin: '0 auto' }}>
-          {t('landing.services.sub', 'Inspiré des super-apps qui dominent l\'Afrique — mais conçu entièrement pour les besoins de l\'Afrique francophone.')}
+          {t('landing.services.sub', 'Une seule application pour les livraisons, la restauration, les courses et les paiements — conçue entièrement pour les besoins de l\'Afrique francophone.')}
         </p>
       </div>
 
@@ -532,7 +532,7 @@ function DownloadSection({ t }) {
             {t('landing.app.eyebrow', 'Application mobile')}
           </div>
           <h3 style={{ fontFamily: 'Fraunces, serif', fontSize: 28, fontWeight: 400, margin: '0 0 12px', letterSpacing: '-0.015em' }}>
-            {t('landing.app.title', 'Toute la super-app dans votre poche.')}
+            {t('landing.app.title', 'Toute la plateforme dans votre poche.')}
           </h3>
           <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, margin: '0 0 24px', maxWidth: 480 }}>
             {t('landing.app.desc', 'Postez une livraison, commandez un repas, suivez votre livreur, gérez votre wallet — disponible sur iOS et Android. Même sans connexion stable.')}
@@ -570,7 +570,7 @@ function Footer({ t }) {
               <span style={{ fontFamily: 'Fraunces, serif', fontSize: 20, fontWeight: 600, color: C.forest }}>ArgiDrop</span>
             </div>
             <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.65, maxWidth: 280, margin: '0 0 16px' }}>
-              {t('landing.footer.tagline', 'La super-app de livraison d\'Afrique de l\'Ouest. Livraison, food, rides et paiements en une seule application.')}
+              {t('landing.footer.tagline', 'La plateforme de livraison tout-en-un d\'Afrique de l\'Ouest. Livraison, food, rides et paiements en une seule application.')}
             </p>
             <div style={{ fontSize: 12, color: C.subtle }}>{t('landing.footer.org', 'par ARGILETTE LLC · St. Louis, MO')}</div>
           </div>

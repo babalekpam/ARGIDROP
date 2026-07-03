@@ -22,7 +22,7 @@ export default {
       line1: 'West Africa',
       line2: 'moves',
       line3: 'with ArgiDrop.',
-      sub: 'Deliveries, food, rides, payments — all in one app. The delivery super-app built for francophone Africa.',
+      sub: 'Deliveries, food, rides, payments — all in one app. The all-in-one delivery platform built for francophone Africa.',
       cta1: 'Send a package →',
       cta2: 'Explore services',
       stat1: 'average match time',
@@ -33,7 +33,7 @@ export default {
       eyebrow: 'Four services · One app',
       title1: 'Deliver everything, manage everything',
       title2: 'with ArgiDrop.',
-      sub: 'Inspired by the super-apps dominating Africa — but built entirely for francophone West Africa.',
+      sub: 'One app for deliveries, food, rides and payments — built entirely for the needs of francophone West Africa.',
       deliver: {
         title: 'ArgiDrop Deliver',
         sub: 'B2B & individuals',
@@ -160,13 +160,13 @@ export default {
     },
     app: {
       eyebrow: 'Mobile app',
-      title: 'The whole super-app in your pocket.',
+      title: 'The whole platform in your pocket.',
       desc: 'Post a delivery, order food, track your driver, manage your wallet — available on iOS and Android. Even on a slow connection.',
       iosTop: 'DOWNLOAD ON THE',
       androidTop: 'GET IT ON',
     },
     footer: {
-      tagline: 'West Africa\'s delivery super-app. Delivery, food, rides and payments in one application.',
+      tagline: 'West Africa\'s all-in-one delivery platform. Delivery, food, rides and payments in one application.',
       org: 'by ARGILETTE LLC · St. Louis, MO',
       copyright: '© 2026 ARGILETTE LLC. All rights reserved.',
       col1: 'Services',

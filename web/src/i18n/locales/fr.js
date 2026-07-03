@@ -22,7 +22,7 @@ export default {
       line1: 'L\'Afrique de l\'Ouest',
       line2: 'se déplace',
       line3: 'avec ArgiDrop.',
-      sub: 'Livraisons, repas, courses, paiements — tout dans une seule application. La super-app de livraison conçue pour l\'Afrique francophone.',
+      sub: 'Livraisons, repas, courses, paiements — tout dans une seule application. La plateforme de livraison tout-en-un conçue pour l\'Afrique francophone.',
       cta1: 'Envoyer un colis →',
       cta2: 'Découvrir les services',
       stat1: 'délai d\'assignation',
@@ -33,7 +33,7 @@ export default {
       eyebrow: 'Quatre services · Une application',
       title1: 'Tout livrer, tout gérer',
       title2: 'avec ArgiDrop.',
-      sub: 'Inspiré des super-apps qui dominent l\'Afrique — mais conçu entièrement pour les besoins de l\'Afrique francophone.',
+      sub: 'Une seule application pour les livraisons, la restauration, les courses et les paiements — conçue entièrement pour les besoins de l\'Afrique francophone.',
       deliver: {
         title: 'ArgiDrop Livraison',
         sub: 'B2B & particuliers',
@@ -160,13 +160,13 @@ export default {
     },
     app: {
       eyebrow: 'Application mobile',
-      title: 'Toute la super-app dans votre poche.',
+      title: 'Toute la plateforme dans votre poche.',
       desc: 'Postez une livraison, commandez un repas, suivez votre livreur, gérez votre wallet — disponible sur iOS et Android. Même sans connexion stable.',
       iosTop: 'TÉLÉCHARGER SUR',
       androidTop: 'DISPONIBLE SUR',
     },
     footer: {
-      tagline: 'La super-app de livraison d\'Afrique de l\'Ouest. Livraison, food, rides et paiements en une seule application.',
+      tagline: 'La plateforme de livraison tout-en-un d\'Afrique de l\'Ouest. Livraison, food, rides et paiements en une seule application.',
       org: 'par ARGILETTE LLC · St. Louis, MO',
       copyright: '© 2026 ARGILETTE LLC. Tous droits réservés.',
       col1: 'Services',
