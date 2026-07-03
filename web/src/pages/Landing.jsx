@@ -174,7 +174,7 @@ function ServicesSection({ t }) {
           <em style={{ color: C.forest, fontStyle: 'italic' }}>{t('landing.services.title2', 'avec ArgiDrop.')}</em>
         </h2>
         <p style={{ fontSize: 16, color: C.muted, maxWidth: 560, margin: '0 auto' }}>
-          {t('landing.services.sub', 'Inspiré des super-apps qui dominent l\'Afrique — GoZem, Yango — mais conçu entièrement pour les besoins de l\'Afrique francophone.')}
+          {t('landing.services.sub', 'Inspiré des super-apps qui dominent l\'Afrique — mais conçu entièrement pour les besoins de l\'Afrique francophone.')}
         </p>
       </div>
 

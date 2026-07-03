@@ -48,7 +48,7 @@ const walletTxTypeEnum = pgEnum('wallet_tx_type', ['DEPOSIT', 'HOLD', 'RELEASE',
 const driverPayoutStatusEnum = pgEnum('driver_payout_status', ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED']);
 const driverPayoutTriggerEnum = pgEnum('driver_payout_trigger', ['END_SHIFT', 'NIGHTLY_AUTO', 'ADMIN_MANUAL']);
 
-// ─── DRIVER LEVEL (gamification — YANGO/GOZEM style) ───
+// ─── DRIVER LEVEL (gamification) ───
 const driverLevelEnum = pgEnum('driver_level', ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']);
 
 // ─── FOOD DELIVERY ENUMS ───

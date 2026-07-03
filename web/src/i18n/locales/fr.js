@@ -33,7 +33,7 @@ export default {
       eyebrow: 'Quatre services · Une application',
       title1: 'Tout livrer, tout gérer',
       title2: 'avec ArgiDrop.',
-      sub: 'Inspiré des super-apps qui dominent l\'Afrique — GoZem, Yango — mais conçu entièrement pour les besoins de l\'Afrique francophone.',
+      sub: 'Inspiré des super-apps qui dominent l\'Afrique — mais conçu entièrement pour les besoins de l\'Afrique francophone.',
       deliver: {
         title: 'ArgiDrop Livraison',
         sub: 'B2B & particuliers',
