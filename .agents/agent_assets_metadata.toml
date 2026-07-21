@@ -161,3 +161,9 @@ id = "sq143fbMqxU7yeYkU4jo7"
 uri = "file://attached_assets/play_store/screen_4_login_fr.jpg"
 type = "image"
 title = "4 — Sécurité (JPEG)"
+
+[[outputs]]
+id = "bYq7SYTJwhoY_6tRZ4_yK"
+uri = "file://exports/deck/ArgiDrop-Investor-Deck.pptx"
+type = "slides"
+title = "ArgiDrop Investor Deck (PPTX)"
