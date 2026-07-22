@@ -6,9 +6,9 @@
  *   3. reconcileCOD     — admin marks COD fully settled; releases driver earnings
  */
 
-import { eq, and } from 'drizzle-orm';
-import { getDB } from '../config/database.js';
-import {
+const { eq, and } = require('drizzle-orm');
+const { getDB } = require('../config/database');
+const {
   jobs,
   payments,
   drivers,
@@ -16,7 +16,7 @@ import {
   businessWallets,
   walletTransactions,
   users,
-} from '../schema.js';
+} = require('../schema');
 
 const PLATFORM_COMMISSION_RATE = 0.15; // 15%
 
@@ -33,7 +33,7 @@ const PLATFORM_COMMISSION_RATE = 0.15; // 15%
  * @param {string} currency - e.g. 'XOF'
  * @returns {Promise<{ success: boolean, paymentId?: number, error?: string }>}
  */
-export const initiateCOD = async (jobId, amount, currency) => {
+const initiateCOD = async (jobId, amount, currency) => {
   const db = getDB();
   try {
     await db
@@ -79,7 +79,7 @@ export const initiateCOD = async (jobId, amount, currency) => {
  * @param {number} collectedAmount
  * @returns {Promise<{ success: boolean, driverEarnings?: number, commission?: number, error?: string }>}
  */
-export const confirmCODCollection = async (jobId, driverId, collectedAmount) => {
+const confirmCODCollection = async (jobId, driverId, collectedAmount) => {
   const db = getDB();
   try {
     const commission = Math.round(collectedAmount * PLATFORM_COMMISSION_RATE);
@@ -166,7 +166,7 @@ export const confirmCODCollection = async (jobId, driverId, collectedAmount) => 
  * @param {string|number} adminUserId
  * @returns {Promise<{ success: boolean, error?: string }>}
  */
-export const reconcileCOD = async (jobId, adminUserId) => {
+const reconcileCOD = async (jobId, adminUserId) => {
   const db = getDB();
   try {
     // Fetch the COD payment record
@@ -236,3 +236,5 @@ export const reconcileCOD = async (jobId, adminUserId) => {
     return { success: false, error: err.message };
   }
 };
+
+module.exports = { initiateCOD, confirmCODCollection, reconcileCOD };

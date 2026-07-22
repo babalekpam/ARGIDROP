@@ -95,7 +95,7 @@ const ensureAccount = (userId) => {
  * @param {string|number} userId
  * @returns {{ userId: string, points: number, tier: string, benefits: string[], nextTier: string|null, pointsToNext: number|null }}
  */
-export const getOrCreateAccount = (userId) => {
+const getOrCreateAccount = (userId) => {
   const key = ensureAccount(userId);
   const { points } = accountsStore.get(key);
   const tier = getTier(points);
@@ -121,7 +121,7 @@ export const getOrCreateAccount = (userId) => {
  * @param {string} [refId]   - Optional reference ID (e.g. job ID)
  * @returns {{ newTotal: number, pointsAwarded: number, tier: string }}
  */
-export const awardPoints = (userId, amount, reason, refId) => {
+const awardPoints = (userId, amount, reason, refId) => {
   const key = ensureAccount(userId);
   const pointsAwarded = Math.floor(amount * POINTS_PER_XOF);
 
@@ -152,7 +152,7 @@ export const awardPoints = (userId, amount, reason, refId) => {
  * @param {number} pointsToRedeem
  * @returns {{ success: boolean, discountXOF: number, remainingPoints: number, reason?: string }}
  */
-export const redeemPoints = (userId, pointsToRedeem) => {
+const redeemPoints = (userId, pointsToRedeem) => {
   const key = ensureAccount(userId);
   const acct = accountsStore.get(key);
 
@@ -194,8 +194,10 @@ export const redeemPoints = (userId, pointsToRedeem) => {
  * @param {string|number} userId
  * @returns {Array<{ ts: Date, type: string, points: number, reason: string, refId: string|null }>}
  */
-export const getHistory = (userId) => {
+const getHistory = (userId) => {
   const key = String(userId);
   const history = historyStore.get(key) ?? [];
   return history.slice(-50).reverse();
 };
+
+module.exports = { getOrCreateAccount, awardPoints, redeemPoints, getHistory };

@@ -8,7 +8,7 @@
  *   WHATSAPP_TOKEN, WHATSAPP_PHONE_ID
  */
 
-import axios from 'axios';
+const axios = require('axios');
 
 // ---------------------------------------------------------------------------
 // Internal senders
@@ -73,7 +73,7 @@ const sendViaCloudAPI = async (phone, message) => {
  * @param {string} message
  * @returns {Promise<boolean>}
  */
-export const sendWhatsApp = async (phone, message) => {
+const sendWhatsApp = async (phone, message) => {
   // Try Twilio
   try {
     await sendViaTwilio(phone, message);
@@ -101,7 +101,7 @@ export const sendWhatsApp = async (phone, message) => {
  * @param {{ trackingToken: string, status: string, driverName: string, eta: string }} data
  * @returns {Promise<boolean>}
  */
-export const sendDeliveryUpdate = async (phone, { trackingToken, status, driverName, eta }) => {
+const sendDeliveryUpdate = async (phone, { trackingToken, status, driverName, eta }) => {
   const message =
     `🚚 *Mise à jour de livraison ARGIDROP*\n\n` +
     `📦 Référence: *${trackingToken}*\n` +
@@ -125,7 +125,7 @@ export const sendDeliveryUpdate = async (phone, { trackingToken, status, driverN
  * @param {{ trackingToken: string, driverName: string, vehicle: string, eta: string }} data
  * @returns {Promise<boolean>}
  */
-export const sendJobMatched = async (phone, { trackingToken, driverName, vehicle, eta }) => {
+const sendJobMatched = async (phone, { trackingToken, driverName, vehicle, eta }) => {
   const message =
     `✅ *Livreur assigné — ARGIDROP*\n\n` +
     `Votre commande *${trackingToken}* a été prise en charge!\n\n` +
@@ -149,7 +149,7 @@ export const sendJobMatched = async (phone, { trackingToken, driverName, vehicle
  * @param {{ amount: number, currency: string, jobRef: string }} data
  * @returns {Promise<boolean>}
  */
-export const sendPaymentReceived = async (phone, { amount, currency, jobRef }) => {
+const sendPaymentReceived = async (phone, { amount, currency, jobRef }) => {
   const message =
     `💰 *Paiement confirmé — ARGIDROP*\n\n` +
     `Nous avons bien reçu votre paiement.\n\n` +
@@ -173,7 +173,7 @@ export const sendPaymentReceived = async (phone, { amount, currency, jobRef }) =
  * @param {{ driverName: string, guaranteeAmount: number, currency: string, periodEnd: string }} data
  * @returns {Promise<boolean>}
  */
-export const sendDriverWelfare = async (phone, { driverName, guaranteeAmount, currency, periodEnd }) => {
+const sendDriverWelfare = async (phone, { driverName, guaranteeAmount, currency, periodEnd }) => {
   const message =
     `🤝 *Garantie de revenus — ARGIDROP*\n\n` +
     `Bonjour *${driverName}*,\n\n` +
@@ -190,3 +190,5 @@ export const sendDriverWelfare = async (phone, { driverName, guaranteeAmount, cu
     return false;
   }
 };
+
+module.exports = { sendWhatsApp, sendDeliveryUpdate, sendJobMatched, sendPaymentReceived, sendDriverWelfare };

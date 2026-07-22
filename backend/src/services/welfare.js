@@ -10,10 +10,10 @@
  * a `welfarePayments` table.
  */
 
-import { eq, and, gte } from 'drizzle-orm';
-import { getDB } from '../config/database.js';
-import { drivers, users } from '../schema.js';
-import { sendDriverWelfare } from './whatsapp.js';
+const { eq, and, gte } = require('drizzle-orm');
+const { getDB } = require('../config/database');
+const { drivers, users } = require('../schema');
+const { sendDriverWelfare } = require('./whatsapp');
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,7 +49,7 @@ const welfareLog = [];
  * @param {string|number} driverId
  * @returns {Promise<{ eligible: boolean, shortfall: number, guaranteeAmount: number, reason?: string }>}
  */
-export const checkWelfareEligibility = async (driverId) => {
+const checkWelfareEligibility = async (driverId) => {
   const db = getDB();
   try {
     const [driver] = await db
@@ -119,7 +119,7 @@ export const checkWelfareEligibility = async (driverId) => {
  * @param {string|number} driverId
  * @returns {Promise<{ success: boolean, topupAmount?: number, error?: string }>}
  */
-export const processWelfareTopup = async (driverId) => {
+const processWelfareTopup = async (driverId) => {
   const db = getDB();
   try {
     const eligibility = await checkWelfareEligibility(driverId);
@@ -199,7 +199,7 @@ export const processWelfareTopup = async (driverId) => {
  *
  * @returns {Promise<{ checked: number, topupsApplied: number, errors: number }>}
  */
-export const runWelfareCheck = async () => {
+const runWelfareCheck = async () => {
   const db = getDB();
   let checked = 0;
   let topupsApplied = 0;
@@ -243,3 +243,11 @@ export const runWelfareCheck = async () => {
   console.log(`[Welfare] Check complete — checked: ${checked}, topups: ${topupsApplied}, errors: ${errors}`);
   return { checked, topupsApplied, errors };
 };
+
+// ---------------------------------------------------------------------------
+// getWelfareHistory — returns the in-memory welfare payment log (admin)
+// ---------------------------------------------------------------------------
+
+const getWelfareHistory = async () => welfareLog;
+
+module.exports = { checkWelfareEligibility, processWelfareTopup, runWelfareCheck, getWelfareHistory };
