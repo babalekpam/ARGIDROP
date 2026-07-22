@@ -252,6 +252,14 @@ export default {
     fillAddresses: 'Please choose a pickup and a destination',
     rideFailed: 'Could not process the ride request',
   },
+  download: {
+    title: 'Download ArgiDrop',
+    redirecting: 'Redirecting you to the store…',
+    choose: 'Choose your store:',
+    iosTop: 'DOWNLOAD ON THE',
+    androidTop: 'AVAILABLE ON',
+    desktopHint: 'Open this link on your phone to be automatically redirected to the right store.',
+  },
   food: {
     title: 'Order food',
     subtitle: 'Browse restaurants near you. We deliver to your door.',

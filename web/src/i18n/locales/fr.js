@@ -252,6 +252,14 @@ export default {
     fillAddresses: 'Veuillez choisir un lieu de départ et une destination',
     rideFailed: 'Impossible de traiter la demande de course',
   },
+  download: {
+    title: 'Téléchargez ArgiDrop',
+    redirecting: 'Redirection vers la boutique en cours…',
+    choose: 'Choisissez votre boutique :',
+    iosTop: 'TÉLÉCHARGER SUR',
+    androidTop: 'DISPONIBLE SUR',
+    desktopHint: 'Ouvrez ce lien sur votre téléphone pour être redirigé automatiquement vers la bonne boutique.',
+  },
   food: {
     title: 'Commander un repas',
     subtitle: 'Découvrez les restaurants près de chez vous. Nous livrons à votre porte.',
