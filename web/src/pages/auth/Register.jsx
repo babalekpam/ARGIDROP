@@ -34,7 +34,7 @@ export default function Register() {
       const user = await register(payload);
       toast.success(t('auth.register.created'));
       const dest = user.role === 'DRIVER' ? '/driver'
-        : submittedType === 'INDIVIDUAL' ? '/dashboard/food'
+        : submittedType === 'INDIVIDUAL' ? '/dashboard/home'
         : '/onboarding';
       navigate(dest);
     } catch (err) {

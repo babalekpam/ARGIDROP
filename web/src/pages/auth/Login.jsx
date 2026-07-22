@@ -19,7 +19,7 @@ export default function Login() {
     try {
       const u = await login(form.email, form.password);
       toast.success(t('auth.login.welcomeToast'));
-      const dest = u.role === 'ADMIN' ? '/admin' : u.role === 'DRIVER' ? '/driver' : u.isIndividual ? '/dashboard/food' : '/dashboard';
+      const dest = u.role === 'ADMIN' ? '/admin' : u.role === 'DRIVER' ? '/driver' : u.isIndividual ? '/dashboard/home' : '/dashboard';
       nav(dest);
     }
     catch(err) { toast.error(err.response?.data?.message || t('auth.login.failed')); }

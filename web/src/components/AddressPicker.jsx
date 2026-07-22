@@ -108,12 +108,12 @@ export default function AddressPicker({ value, onChange, label, color = C.forest
           </div>
         )}
       </div>
-      <div style={{ marginTop:8, position:'relative' }}>
+      {height > 0 && <div style={{ marginTop:8, position:'relative' }}>
         <MapView center={center} zoom={hasPin ? 14 : 12} markers={markers} height={height} onClick={({ lng, lat }) => reverseGeo(lng, lat)} />
         <div style={{ position:'absolute', bottom:8, left:8, background:C.paper, border:`1px solid ${C.border}`, borderRadius:4, padding:'4px 10px', fontSize:11, color:C.muted, pointerEvents:'none' }}>
           Tap the map to drop a pin
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

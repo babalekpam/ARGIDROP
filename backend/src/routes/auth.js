@@ -78,11 +78,13 @@ router.post('/register', async (req, res, next) => {
     }
 
     const tokens = generateTokens(user.id, user.role, user.passwordChangedAt);
+    const profile = await loadProfileWithDocs(db, user);
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
       tokens,
       user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, status: user.status, marketCode: resolvedMarketCode },
+      profile,
       referral: referralResult,
     });
   } catch (err) {

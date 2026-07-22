@@ -34,12 +34,13 @@ export function AuthProvider({ children }) {
 
   const register = async (data) => {
     const res = await api.post('/auth/register', data);
-    const { tokens, user } = res.data;
+    const { tokens, user, profile } = res.data;
     localStorage.setItem('argidrop_token', tokens.access);
     localStorage.setItem('argidrop_refresh', tokens.refresh);
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
     setUser(user);
-    return user;
+    setProfile(profile || null);
+    return { ...user, isIndividual: !!profile?.isIndividual };
   };
 
   const logout = () => {

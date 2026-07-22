@@ -28,6 +28,10 @@ const AVG_SPEED_KMH = 25;   // urban average speed for duration estimate
 
 const VEHICLE_TYPES = ['MOTO', 'ZEMIDJAN', 'CAR', 'TRICYCLE'];
 
+// Ride vehicle types map onto the drivers.vehicle_type DB enum
+// (BICYCLE, MOTORCYCLE, CAR, VAN, TRUCK, TRICYCLE)
+const DB_VEHICLE_TYPE = { MOTO: 'MOTORCYCLE', ZEMIDJAN: 'MOTORCYCLE', CAR: 'CAR', TRICYCLE: 'TRICYCLE' };
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
@@ -56,14 +60,14 @@ function estimateDurationMin(distanceKm) {
  */
 async function findNearestDriver(db, fromLat, fromLng, vehicleType) {
   const availableDrivers = await db
-    .select()
+    .select({ id: drivers.id, userId: drivers.userId, currentLat: drivers.currentLat, currentLng: drivers.currentLng })
     .from(drivers)
     .where(
       and(
-        eq(drivers.status, 'APPROVED'),
+        eq(drivers.verificationStatus, 'APPROVED'),
         eq(drivers.isOnline, true),
-        eq(drivers.isAvailable, true),
-        eq(drivers.vehicleType, vehicleType)
+        eq(drivers.isActive, true),
+        eq(drivers.vehicleType, DB_VEHICLE_TYPE[vehicleType])
       )
     );
 
@@ -109,14 +113,14 @@ router.post('/estimate', async (req, res) => {
 
     // Count available drivers of requested type
     const availableDrivers = await db
-      .select()
+      .select({ id: drivers.id })
       .from(drivers)
       .where(
         and(
-          eq(drivers.status, 'APPROVED'),
+          eq(drivers.verificationStatus, 'APPROVED'),
           eq(drivers.isOnline, true),
-          eq(drivers.isAvailable, true),
-          eq(drivers.vehicleType, vehicleType)
+          eq(drivers.isActive, true),
+          eq(drivers.vehicleType, DB_VEHICLE_TYPE[vehicleType])
         )
       );
 

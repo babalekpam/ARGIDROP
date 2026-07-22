@@ -14,7 +14,15 @@ export default function BusinessLayout() {
   const [wallet, setWallet] = useState(null);
   const [activeJobs, setActiveJobs] = useState(0);
 
-  const NAV = [
+  const NAV = profile?.isIndividual ? [
+    { to:'/dashboard/home', label:t('business.nav.home'), icon:'▦' },
+    { to:'/dashboard/food', label:t('business.nav.food'), icon:'🍽' },
+    { to:'/dashboard/marketplace', label:t('business.nav.browseMerchants'), icon:'🛍' },
+    { to:'/dashboard/home#ride', label:t('business.nav.rides'), icon:'🏍' },
+    { divider: true, label: t('business.nav.account') },
+    { to:'/dashboard/wallet', label:t('business.nav.wallet'), icon:'💳' },
+    { to:'/dashboard/profile', label:t('business.nav.settings'), icon:'⚙' },
+  ] : [
     { to:'/dashboard', label:t('business.nav.dashboard'), icon:'▦', end:true },
     { to:'/dashboard/post-job', label:t('business.nav.postDelivery'), icon:'＋' },
     { to:'/dashboard/jobs', label:t('business.nav.myDeliveries'), icon:'📦' },
