@@ -7,3 +7,4 @@ dist/
 # iOS submit secrets (materialized at submit-time, never commit)
 credentials/
 *.p8
+asc_key.p8

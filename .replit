@@ -75,13 +75,13 @@ outputType = "webview"
 name = "Mobile Web Preview"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd mobile && npx expo start --web --port 8080 --clear"
-waitForPort = 8080
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mobile && BROWSER=none EXPO_NO_TELEMETRY=1 EXPO_NO_METRO_LAZY=1 npx expo start --web --port 8080"
+waitForPort = 8080
 
 [[ports]]
 localPort = 3000

@@ -45,7 +45,6 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "image": "latest",
         "resourceClass": "m-medium"
       }
     }
@@ -57,7 +56,10 @@
       },
       "ios": {
         "appleTeamId": "Z82KB5AR7N",
-        "ascAppId": "6764177430"
+        "ascAppId": "6764177430",
+        "ascApiKeyPath": "./asc_key.p8",
+        "ascApiKeyId": "$EXPO_ASC_API_KEY_ID",
+        "ascApiKeyIssuerId": "$EXPO_ASC_API_KEY_ISSUER_ID"
       }
     }
   }

@@ -7,7 +7,7 @@ import {
   ActivityIndicator, Animated, Image
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Camera from 'expo-camera';
+import { Camera } from 'expo-camera';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import { t, getLang } from '../../utils/i18n';

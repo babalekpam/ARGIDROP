@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
@@ -20,8 +20,11 @@ Notifications.setNotificationHandler({
 });
 
 const ArgiDropTheme = {
+  ...DefaultTheme,
   dark: false,
+  fonts: DefaultTheme.fonts,
   colors: {
+    ...DefaultTheme.colors,
     primary: '#1B4332',
     background: '#F7F3EB',
     card: '#FDFBF6',

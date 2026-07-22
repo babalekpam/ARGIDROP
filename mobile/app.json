@@ -9,11 +9,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "primaryColor": "#1B4332",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F7F3EB"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -40,58 +35,14 @@
       },
       "package": "com.argilette.argidrop.driver",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "argidrop.com",
-              "pathPrefix": "/jobs"
-            },
-            {
-              "scheme": "https",
-              "host": "argidrop.com",
-              "pathPrefix": "/track"
-            },
-            {
-              "scheme": "https",
-              "host": "www.argidrop.com",
-              "pathPrefix": "/jobs"
-            },
-            {
-              "scheme": "https",
-              "host": "www.argidrop.com",
-              "pathPrefix": "/track"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -127,10 +78,6 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
@@ -160,6 +107,14 @@
       ],
       "expo-font",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F3EB"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
@@ -169,7 +124,9 @@
             "ndkVersion": "27.1.12297006"
           }
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "extra": {
       "maptilerKey": {},
