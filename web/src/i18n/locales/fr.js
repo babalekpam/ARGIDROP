@@ -18,7 +18,7 @@ export default {
       business: 'Entreprises',
     },
     hero: {
-      badge: 'Togo · Bénin · Côte d\'Ivoire · Burkina Faso · Ghana · Sénégal · Nigeria',
+      badge: 'Togo · Bénin · Côte d\'Ivoire · Burkina Faso · Ghana · Sénégal · Nigeria · + toute la CEDEAO',
       line1: 'L\'Afrique de l\'Ouest',
       line2: 'se déplace',
       line3: 'avec ArgiDrop.',
@@ -145,7 +145,7 @@ export default {
       stat1: 'délai moyen d\'assignation',
       stat2: 'vérifications QR par livraison',
       stat3: 'commission — la plus basse',
-      stat4: 'pays CEDEAO au lancement',
+      stat4: 'pays CEDEAO sur notre feuille de route',
     },
     markets: {
       eyebrow: 'Expansion CEDEAO',
@@ -281,7 +281,7 @@ export default {
         Restaurant: 'Restaurant', Pharmacy: 'Pharmacie', 'Retail shop': 'Boutique', 'E-commerce': 'E-commerce',
         Logistics: 'Logistique', 'Medical clinic': 'Clinique médicale', Florist: 'Fleuriste', Grocery: 'Épicerie', Other: 'Autre',
       },
-      countries: { TG: 'Togo', CI: 'Côte d\'Ivoire', SN: 'Sénégal', BJ: 'Bénin', BF: 'Burkina Faso', GH: 'Ghana', NG: 'Nigeria' },
+      countries: { TG: 'Togo', CI: 'Côte d\'Ivoire', SN: 'Sénégal', BJ: 'Bénin', BF: 'Burkina Faso', GH: 'Ghana', NG: 'Nigeria', ML: 'Mali', NE: 'Niger', GN: 'Guinée', SL: 'Sierra Leone', LR: 'Liberia', GM: 'Gambie', GW: 'Guinée-Bissau', CV: 'Cap-Vert' },
     },
   },
   support: {

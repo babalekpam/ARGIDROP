@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 const C = { cream:'#F7F3EB', paper:'#FDFBF6', forest:'#1B4332', bronze:'#8B6F47', ink:'#1A1A1A', muted:'#6B6560', subtle:'#9A9489', border:'#E4DCC9', borderSoft:'#EFE8D7' };
 
 const CURRENCIES = ['XOF','GHS','NGN','KES','UGX','TZS'];
-const COUNTRIES = [['TG','Togo'],['CI',"Côte d'Ivoire"],['SN','Senegal'],['BJ','Benin'],['BF','Burkina Faso'],['GH','Ghana'],['NG','Nigeria'],['KE','Kenya']];
+const COUNTRIES = [['TG','Togo'],['CI',"Côte d'Ivoire"],['SN','Senegal'],['BJ','Benin'],['BF','Burkina Faso'],['GH','Ghana'],['NG','Nigeria'],['ML','Mali'],['NE','Niger'],['GN','Guinea'],['SL','Sierra Leone'],['LR','Liberia'],['GM','The Gambia'],['GW','Guinea-Bissau'],['CV','Cape Verde'],['KE','Kenya']];
 
 const defaultZone = { name:'', city:'', country:'TG', currency:'XOF', commissionRate:'18.00', surgeMultiplier:'1.00', radiusKm:'30', minimumDeliveryPrice:'', centerLat:'', centerLng:'', isActive:true };
 

@@ -11,6 +11,8 @@ const COUNTRIES = [
   { code: 'TG', label: 'Togo' }, { code: 'BJ', label: 'Benin' }, { code: 'CI', label: "Côte d'Ivoire" },
   { code: 'GH', label: 'Ghana' }, { code: 'NG', label: 'Nigeria' }, { code: 'SN', label: 'Senegal' },
   { code: 'BF', label: 'Burkina Faso' }, { code: 'ML', label: 'Mali' }, { code: 'NE', label: 'Niger' },
+  { code: 'GN', label: 'Guinea' }, { code: 'SL', label: 'Sierra Leone' }, { code: 'LR', label: 'Liberia' },
+  { code: 'GM', label: 'The Gambia' }, { code: 'GW', label: 'Guinea-Bissau' }, { code: 'CV', label: 'Cape Verde' },
   { code: 'KE', label: 'Kenya' }, { code: 'TZ', label: 'Tanzania' }, { code: 'UG', label: 'Uganda' },
   { code: 'CM', label: 'Cameroon' }, { code: 'GA', label: 'Gabon' }, { code: 'CD', label: 'DR Congo' },
 ];

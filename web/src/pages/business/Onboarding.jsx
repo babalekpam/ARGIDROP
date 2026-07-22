@@ -8,7 +8,7 @@ import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 const C = { cream: '#F7F3EB', paper: '#FDFBF6', forest: '#1B4332', bronze: '#8B6F47', ink: '#1A1A1A', muted: '#6B6560', subtle: '#9A9489', border: '#E4DCC9', success: '#2D5E3E', warn: '#B87333', alert: '#9B2C2C' };
 
-const COUNTRY_CODES = ['TG', 'CI', 'SN', 'BJ', 'BF', 'GH', 'NG'];
+const COUNTRY_CODES = ['TG', 'CI', 'SN', 'BJ', 'BF', 'GH', 'NG', 'ML', 'NE', 'GN', 'SL', 'LR', 'GM', 'GW', 'CV'];
 const BUSINESS_TYPE_KEYS = ['Restaurant', 'Pharmacy', 'Retail shop', 'E-commerce', 'Logistics', 'Medical clinic', 'Florist', 'Grocery', 'Other'];
 const REQUIRED_DOCS = [{ type: 'BUSINESS_LICENSE' }, { type: 'GOVT_ID' }];
 

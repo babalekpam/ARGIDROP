@@ -18,7 +18,7 @@ export default {
       business: 'Business',
     },
     hero: {
-      badge: 'Togo · Benin · Côte d\'Ivoire · Burkina Faso · Ghana · Senegal · Nigeria',
+      badge: 'Togo · Benin · Côte d\'Ivoire · Burkina Faso · Ghana · Senegal · Nigeria · + all of ECOWAS',
       line1: 'West Africa',
       line2: 'moves',
       line3: 'with ArgiDrop.',
@@ -145,7 +145,7 @@ export default {
       stat1: 'average match time',
       stat2: 'QR verifications per delivery',
       stat3: 'commission — market lowest',
-      stat4: 'ECOWAS countries at launch',
+      stat4: 'ECOWAS countries on our roadmap',
     },
     markets: {
       eyebrow: 'ECOWAS expansion',
@@ -281,7 +281,7 @@ export default {
         Restaurant: 'Restaurant', Pharmacy: 'Pharmacy', 'Retail shop': 'Retail shop', 'E-commerce': 'E-commerce',
         Logistics: 'Logistics', 'Medical clinic': 'Medical clinic', Florist: 'Florist', Grocery: 'Grocery', Other: 'Other',
       },
-      countries: { TG: 'Togo', CI: "Côte d'Ivoire", SN: 'Senegal', BJ: 'Benin', BF: 'Burkina Faso', GH: 'Ghana', NG: 'Nigeria' },
+      countries: { TG: 'Togo', CI: "Côte d'Ivoire", SN: 'Senegal', BJ: 'Benin', BF: 'Burkina Faso', GH: 'Ghana', NG: 'Nigeria', ML: 'Mali', NE: 'Niger', GN: 'Guinea', SL: 'Sierra Leone', LR: 'Liberia', GM: 'The Gambia', GW: 'Guinea-Bissau', CV: 'Cape Verde' },
     },
   },
   support: {
