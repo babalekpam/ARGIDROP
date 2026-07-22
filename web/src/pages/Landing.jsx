@@ -206,9 +206,8 @@ function ServicesSection({ t }) {
               t('landing.services.food.f3', 'Paiement MoMo / carte / cash'),
               t('landing.services.food.f4', 'Suivi de préparation en direct'),
             ],
-            cta: t('landing.services.food.cta', 'Bientôt disponible'),
-            ctaHref: '#',
-            badge: t('landing.services.food.badge', 'Q3 2026'),
+            cta: t('landing.services.food.cta', 'Commander un repas →'),
+            ctaHref: '/register',
             color: '#B45309', bg: '#FEF3C7',
           },
           {
@@ -222,9 +221,8 @@ function ServicesSection({ t }) {
               t('landing.services.rides.f3', 'Bouton SOS intégré'),
               t('landing.services.rides.f4', 'Partage de trajet'),
             ],
-            cta: t('landing.services.rides.cta', 'Bientôt disponible'),
-            ctaHref: '#',
-            badge: t('landing.services.rides.badge', 'Q4 2026'),
+            cta: t('landing.services.rides.cta', 'Réserver une course →'),
+            ctaHref: '/register',
             color: '#1D4ED8', bg: '#EFF6FF',
           },
           {

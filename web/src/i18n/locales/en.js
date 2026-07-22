@@ -52,8 +52,7 @@ export default {
         f2: 'Delivery in 30–45 min',
         f3: 'MoMo / card / cash payment',
         f4: 'Live preparation tracking',
-        cta: 'Coming soon',
-        badge: 'Q3 2026',
+        cta: 'Order a meal →',
       },
       rides: {
         title: 'ArgiDrop Rides',
@@ -63,8 +62,7 @@ export default {
         f2: 'Verified drivers',
         f3: 'Built-in SOS button',
         f4: 'Trip sharing',
-        cta: 'Coming soon',
-        badge: 'Q4 2026',
+        cta: 'Book a ride →',
       },
       pay: {
         title: 'ArgiDrop Pay',
