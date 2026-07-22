@@ -58,6 +58,11 @@ const foodOrderStatusEnum = pgEnum('food_order_status', [
 ]);
 const restaurantStatusEnum = pgEnum('restaurant_status', ['PENDING', 'ACTIVE', 'SUSPENDED', 'CLOSED']);
 
+// ─── RIDE-HAILING ENUMS ───
+const rideStatusEnum = pgEnum('ride_status', ['SEARCHING', 'MATCHED', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
+// Ride vehicle types are consumer-facing (MOTO/ZEMIDJAN map onto drivers.vehicle_type MOTORCYCLE)
+const rideVehicleTypeEnum = pgEnum('ride_vehicle_type', ['MOTO', 'ZEMIDJAN', 'CAR', 'TRICYCLE']);
+
 // ─── CORPORATE ACCOUNT ENUMS ───
 const corporateAccountStatusEnum = pgEnum('corporate_account_status', ['ACTIVE', 'SUSPENDED', 'CLOSED']);
 const corporateBillingCycleEnum = pgEnum('corporate_billing_cycle', ['WEEKLY', 'BIWEEKLY', 'MONTHLY']);
@@ -922,6 +927,34 @@ const corporateInvoices = pgTable('corporate_invoices', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ─── RIDE REQUESTS (ride-hailing vertical — motos, zémidjans, cars) ───
+const rideRequests = pgTable('ride_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  passengerId: uuid('passenger_id').references(() => users.id).notNull(),
+  // The driver's users.id (not drivers.id) — matches socket rooms + auth checks
+  driverId: uuid('driver_id').references(() => users.id),
+  fromAddress: text('from_address').notNull(),
+  fromLat: decimal('from_lat', { precision: 10, scale: 7 }).notNull(),
+  fromLng: decimal('from_lng', { precision: 10, scale: 7 }).notNull(),
+  toAddress: text('to_address').notNull(),
+  toLat: decimal('to_lat', { precision: 10, scale: 7 }).notNull(),
+  toLng: decimal('to_lng', { precision: 10, scale: 7 }).notNull(),
+  vehicleType: rideVehicleTypeEnum('vehicle_type').notNull(),
+  estimatedPrice: integer('estimated_price').notNull(), // XOF, whole francs
+  finalPrice: integer('final_price'),
+  currency: text('currency').default('XOF'),
+  status: rideStatusEnum('status').notNull().default('SEARCHING'),
+  trackingToken: text('tracking_token').unique().notNull(),
+  paymentMethod: text('payment_method').notNull(), // 'CASH' today; momo later
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  acceptedAt: timestamp('accepted_at'),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+});
+
 module.exports = {
   // Enums
   userRoleEnum, userStatusEnum, verificationStatusEnum, vehicleTypeEnum,
@@ -932,6 +965,7 @@ module.exports = {
   referralStatusEnum, promoStatusEnum, promoDiscountTypeEnum, promoRoleScopeEnum,
   driverLevelEnum, foodOrderStatusEnum, restaurantStatusEnum,
   corporateAccountStatusEnum, corporateBillingCycleEnum,
+  rideStatusEnum, rideVehicleTypeEnum,
   // Core tables
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
@@ -948,4 +982,6 @@ module.exports = {
   restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
   // Corporate / enterprise
   corporateAccounts, corporateInvoices,
+  // Ride-hailing vertical
+  rideRequests,
 };

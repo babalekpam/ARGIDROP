@@ -2,23 +2,20 @@
  * ArgiDrop Rides — motorcycle taxis, zémidjan, cars
  * Ride-hailing vertical routes
  *
- * TODO: Migrate rideRequests Map to a proper DB table (e.g. ride_requests)
- * once the schema is defined and migrated.
+ * Ride requests are persisted in the ride_requests table so they survive
+ * server restarts. Status transitions use conditional UPDATEs guarded on the
+ * expected current status, so concurrent transitions can't double-apply.
  */
 
 const express = require('express');
 const crypto = require('crypto');
-const { eq, and } = require('drizzle-orm');
+const { eq, and, or, desc, inArray } = require('drizzle-orm');
 const { getDB } = require('../config/database');
 const { getIO } = require('../socket');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { drivers, users } = require('../schema');
+const { drivers, users, rideRequests } = require('../schema');
 
 const router = express.Router();
-
-// ── In-memory store (TODO: migrate to DB) ──────────────────────────────────
-// Map<string (rideRequestId), RideRequest>
-const rideRequests = new Map();
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const BASE_FARE_XOF = 300;
@@ -31,6 +28,8 @@ const VEHICLE_TYPES = ['MOTO', 'ZEMIDJAN', 'CAR', 'TRICYCLE'];
 // Ride vehicle types map onto the drivers.vehicle_type DB enum
 // (BICYCLE, MOTORCYCLE, CAR, VAN, TRUCK, TRICYCLE)
 const DB_VEHICLE_TYPE = { MOTO: 'MOTORCYCLE', ZEMIDJAN: 'MOTORCYCLE', CAR: 'CAR', TRICYCLE: 'TRICYCLE' };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -52,6 +51,34 @@ function estimatePriceXOF(distanceKm, vehicleType) {
 
 function estimateDurationMin(distanceKm) {
   return Math.round((distanceKm / AVG_SPEED_KMH) * 60) + 2; // +2 min pickup buffer
+}
+
+/**
+ * Serialize a ride_requests row to the wire shape the mobile app expects:
+ * numeric lat/lng/prices and ISO-8601 timestamp strings.
+ */
+function serializeRide(row) {
+  if (!row) return null;
+  const iso = (v) => (v ? new Date(v).toISOString() : null);
+  const num = (v) => (v == null ? null : Number(v));
+  return {
+    ...row,
+    fromLat: num(row.fromLat),
+    fromLng: num(row.fromLng),
+    toLat: num(row.toLat),
+    toLng: num(row.toLng),
+    createdAt: iso(row.createdAt),
+    acceptedAt: iso(row.acceptedAt),
+    startedAt: iso(row.startedAt),
+    completedAt: iso(row.completedAt),
+    cancelledAt: iso(row.cancelledAt),
+  };
+}
+
+async function getRideById(db, id) {
+  if (!UUID_RE.test(id)) return null;
+  const [row] = await db.select().from(rideRequests).where(eq(rideRequests.id, id)).limit(1);
+  return row || null;
 }
 
 /**
@@ -174,33 +201,26 @@ router.post('/request', authenticate, async (req, res) => {
     // Match nearest available driver
     const driver = await findNearestDriver(db, fromLat, fromLng, vehicleType);
 
-    const rideRequest = {
-      id: crypto.randomUUID(),
-      passengerId: req.user.id,
-      driverId: driver ? driver.userId : null,
-      fromAddress,
-      fromLat,
-      fromLng,
-      toAddress,
-      toLat,
-      toLng,
-      vehicleType,
-      estimatedPrice,
-      finalPrice: null,
-      currency: 'XOF',
-      status: driver ? 'MATCHED' : 'SEARCHING',
-      trackingToken: crypto.randomUUID(),
-      paymentMethod,
-      notes: notes || null,
-      createdAt: new Date().toISOString(),
-      acceptedAt: null,
-      startedAt: null,
-      completedAt: null,
-      cancelledAt: null,
-      cancelReason: null,
-    };
-
-    rideRequests.set(rideRequest.id, rideRequest);
+    const [rideRequest] = await db
+      .insert(rideRequests)
+      .values({
+        passengerId: req.user.id,
+        driverId: driver ? driver.userId : null,
+        fromAddress,
+        fromLat: String(fromLat),
+        fromLng: String(fromLng),
+        toAddress,
+        toLat: String(toLat),
+        toLng: String(toLng),
+        vehicleType,
+        estimatedPrice,
+        currency: 'XOF',
+        status: driver ? 'MATCHED' : 'SEARCHING',
+        trackingToken: crypto.randomUUID(),
+        paymentMethod,
+        notes: notes || null,
+      })
+      .returning();
 
     // Emit socket event to driver if matched
     const io = getIO();
@@ -221,7 +241,7 @@ router.post('/request', authenticate, async (req, res) => {
       });
     }
 
-    return res.status(201).json({ rideRequest });
+    return res.status(201).json({ rideRequest: serializeRide(rideRequest) });
   } catch (err) {
     console.error('[rides] /request error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -234,7 +254,8 @@ router.post('/request', authenticate, async (req, res) => {
  */
 router.get('/request/:id', authenticate, async (req, res) => {
   try {
-    const rideRequest = rideRequests.get(req.params.id);
+    const db = getDB();
+    const rideRequest = await getRideById(db, req.params.id);
     if (!rideRequest) {
       return res.status(404).json({ error: 'Ride request not found' });
     }
@@ -251,7 +272,6 @@ router.get('/request/:id', authenticate, async (req, res) => {
     // Fetch driver details if assigned
     let driverDetails = null;
     if (rideRequest.driverId) {
-      const db = getDB();
       const [driverRow] = await db
         .select()
         .from(drivers)
@@ -272,7 +292,7 @@ router.get('/request/:id', authenticate, async (req, res) => {
       }
     }
 
-    return res.json({ rideRequest, driver: driverDetails });
+    return res.json({ rideRequest: serializeRide(rideRequest), driver: driverDetails });
   } catch (err) {
     console.error('[rides] GET /request/:id error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -285,34 +305,48 @@ router.get('/request/:id', authenticate, async (req, res) => {
  */
 router.post('/request/:id/accept', authenticate, requireRole('DRIVER'), async (req, res) => {
   try {
-    const rideRequest = rideRequests.get(req.params.id);
-    if (!rideRequest) {
+    const db = getDB();
+    const existing = await getRideById(db, req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Ride request not found' });
     }
 
-    if (rideRequest.driverId && rideRequest.driverId !== req.user.id) {
+    if (existing.driverId && existing.driverId !== req.user.id) {
       return res.status(403).json({ error: 'This ride is assigned to another driver' });
     }
 
-    if (!['MATCHED', 'SEARCHING'].includes(rideRequest.status)) {
-      return res.status(409).json({ error: `Cannot accept a ride with status ${rideRequest.status}` });
+    if (!['MATCHED', 'SEARCHING'].includes(existing.status)) {
+      return res.status(409).json({ error: `Cannot accept a ride with status ${existing.status}` });
     }
 
-    rideRequest.driverId = req.user.id;
-    rideRequest.status = 'ACCEPTED';
-    rideRequest.acceptedAt = new Date().toISOString();
-    rideRequests.set(rideRequest.id, rideRequest);
+    // Conditional update: only wins if the ride is still acceptable and not
+    // grabbed by another driver in the meantime.
+    const [rideRequest] = await db
+      .update(rideRequests)
+      .set({ driverId: req.user.id, status: 'ACCEPTED', acceptedAt: new Date() })
+      .where(
+        and(
+          eq(rideRequests.id, existing.id),
+          inArray(rideRequests.status, ['MATCHED', 'SEARCHING']),
+          existing.driverId ? eq(rideRequests.driverId, existing.driverId) : undefined
+        )
+      )
+      .returning();
+
+    if (!rideRequest) {
+      return res.status(409).json({ error: 'Ride is no longer available' });
+    }
 
     const io = getIO(); if (io) {
 
       io.to(`passenger:${rideRequest.passengerId}`).emit('ride:accepted', {
         rideRequestId: rideRequest.id,
         driverId: req.user.id,
-        acceptedAt: rideRequest.acceptedAt,
+        acceptedAt: new Date(rideRequest.acceptedAt).toISOString(),
       });
     }
 
-    return res.json({ rideRequest });
+    return res.json({ rideRequest: serializeRide(rideRequest) });
   } catch (err) {
     console.error('[rides] /accept error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -325,32 +359,39 @@ router.post('/request/:id/accept', authenticate, requireRole('DRIVER'), async (r
  */
 router.post('/request/:id/start', authenticate, requireRole('DRIVER'), async (req, res) => {
   try {
-    const rideRequest = rideRequests.get(req.params.id);
-    if (!rideRequest) {
+    const db = getDB();
+    const existing = await getRideById(db, req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Ride request not found' });
     }
 
-    if (rideRequest.driverId !== req.user.id) {
+    if (existing.driverId !== req.user.id) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (rideRequest.status !== 'ACCEPTED') {
-      return res.status(409).json({ error: `Cannot start a ride with status ${rideRequest.status}` });
+    if (existing.status !== 'ACCEPTED') {
+      return res.status(409).json({ error: `Cannot start a ride with status ${existing.status}` });
     }
 
-    rideRequest.status = 'IN_PROGRESS';
-    rideRequest.startedAt = new Date().toISOString();
-    rideRequests.set(rideRequest.id, rideRequest);
+    const [rideRequest] = await db
+      .update(rideRequests)
+      .set({ status: 'IN_PROGRESS', startedAt: new Date() })
+      .where(and(eq(rideRequests.id, existing.id), eq(rideRequests.status, 'ACCEPTED')))
+      .returning();
+
+    if (!rideRequest) {
+      return res.status(409).json({ error: 'Cannot start this ride' });
+    }
 
     const io = getIO(); if (io) {
 
       io.to(`passenger:${rideRequest.passengerId}`).emit('ride:started', {
         rideRequestId: rideRequest.id,
-        startedAt: rideRequest.startedAt,
+        startedAt: new Date(rideRequest.startedAt).toISOString(),
       });
     }
 
-    return res.json({ rideRequest });
+    return res.json({ rideRequest: serializeRide(rideRequest) });
   } catch (err) {
     console.error('[rides] /start error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -363,23 +404,33 @@ router.post('/request/:id/start', authenticate, requireRole('DRIVER'), async (re
  */
 router.post('/request/:id/complete', authenticate, requireRole('DRIVER'), async (req, res) => {
   try {
-    const rideRequest = rideRequests.get(req.params.id);
-    if (!rideRequest) {
+    const db = getDB();
+    const existing = await getRideById(db, req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Ride request not found' });
     }
 
-    if (rideRequest.driverId !== req.user.id) {
+    if (existing.driverId !== req.user.id) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (rideRequest.status !== 'IN_PROGRESS') {
-      return res.status(409).json({ error: `Cannot complete a ride with status ${rideRequest.status}` });
+    if (existing.status !== 'IN_PROGRESS') {
+      return res.status(409).json({ error: `Cannot complete a ride with status ${existing.status}` });
     }
 
-    rideRequest.status = 'COMPLETED';
-    rideRequest.finalPrice = rideRequest.estimatedPrice; // final = estimated for now
-    rideRequest.completedAt = new Date().toISOString();
-    rideRequests.set(rideRequest.id, rideRequest);
+    const [rideRequest] = await db
+      .update(rideRequests)
+      .set({
+        status: 'COMPLETED',
+        finalPrice: existing.estimatedPrice, // final = estimated for now
+        completedAt: new Date(),
+      })
+      .where(and(eq(rideRequests.id, existing.id), eq(rideRequests.status, 'IN_PROGRESS')))
+      .returning();
+
+    if (!rideRequest) {
+      return res.status(409).json({ error: 'Cannot complete this ride' });
+    }
 
     // TODO: trigger payment release via payments service
 
@@ -389,11 +440,11 @@ router.post('/request/:id/complete', authenticate, requireRole('DRIVER'), async 
         rideRequestId: rideRequest.id,
         finalPrice: rideRequest.finalPrice,
         currency: rideRequest.currency,
-        completedAt: rideRequest.completedAt,
+        completedAt: new Date(rideRequest.completedAt).toISOString(),
       });
     }
 
-    return res.json({ rideRequest });
+    return res.json({ rideRequest: serializeRide(rideRequest) });
   } catch (err) {
     console.error('[rides] /complete error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -406,21 +457,22 @@ router.post('/request/:id/complete', authenticate, requireRole('DRIVER'), async 
  */
 router.post('/request/:id/cancel', authenticate, async (req, res) => {
   try {
-    const rideRequest = rideRequests.get(req.params.id);
-    if (!rideRequest) {
+    const db = getDB();
+    const existing = await getRideById(db, req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Ride request not found' });
     }
 
-    const isPassenger = rideRequest.passengerId === req.user.id;
-    const isDriver = rideRequest.driverId === req.user.id;
+    const isPassenger = existing.passengerId === req.user.id;
+    const isDriver = existing.driverId === req.user.id;
     const isAdmin = req.user.role === 'ADMIN';
 
     if (!isPassenger && !isDriver && !isAdmin) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (['COMPLETED', 'CANCELLED'].includes(rideRequest.status)) {
-      return res.status(409).json({ error: `Ride is already ${rideRequest.status.toLowerCase()}` });
+    if (['COMPLETED', 'CANCELLED'].includes(existing.status)) {
+      return res.status(409).json({ error: `Ride is already ${existing.status.toLowerCase()}` });
     }
 
     const { reason } = req.body;
@@ -430,13 +482,23 @@ router.post('/request/:id/cancel', authenticate, async (req, res) => {
     // - Cancelled after ACCEPTED but before IN_PROGRESS → 90% refund (10% penalty)
     // - Cancelled during IN_PROGRESS → 50% refund
     let refundPct = 100;
-    if (rideRequest.status === 'ACCEPTED') refundPct = 90;
-    if (rideRequest.status === 'IN_PROGRESS') refundPct = 50;
+    if (existing.status === 'ACCEPTED') refundPct = 90;
+    if (existing.status === 'IN_PROGRESS') refundPct = 50;
 
-    rideRequest.status = 'CANCELLED';
-    rideRequest.cancelledAt = new Date().toISOString();
-    rideRequest.cancelReason = reason || null;
-    rideRequests.set(rideRequest.id, rideRequest);
+    const [rideRequest] = await db
+      .update(rideRequests)
+      .set({ status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason || null })
+      .where(
+        and(
+          eq(rideRequests.id, existing.id),
+          inArray(rideRequests.status, ['SEARCHING', 'MATCHED', 'ACCEPTED', 'IN_PROGRESS'])
+        )
+      )
+      .returning();
+
+    if (!rideRequest) {
+      return res.status(409).json({ error: 'Ride can no longer be cancelled' });
+    }
 
     // TODO: trigger partial refund via payments service based on refundPct
 
@@ -445,7 +507,7 @@ router.post('/request/:id/cancel', authenticate, async (req, res) => {
       const payload = {
         rideRequestId: rideRequest.id,
         cancelledBy: req.user.id,
-        cancelledAt: rideRequest.cancelledAt,
+        cancelledAt: new Date(rideRequest.cancelledAt).toISOString(),
         reason: rideRequest.cancelReason,
         refundPct,
       };
@@ -456,7 +518,7 @@ router.post('/request/:id/cancel', authenticate, async (req, res) => {
     }
 
     return res.json({
-      rideRequest,
+      rideRequest: serializeRide(rideRequest),
       refund: {
         refundPct,
         refundAmount: Math.round((rideRequest.estimatedPrice * refundPct) / 100),
@@ -475,13 +537,16 @@ router.post('/request/:id/cancel', authenticate, async (req, res) => {
  */
 router.get('/requests/me', authenticate, async (req, res) => {
   try {
+    const db = getDB();
     const userId = req.user.id;
-    const myRides = Array.from(rideRequests.values())
-      .filter((r) => r.passengerId === userId || r.driverId === userId)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 30);
+    const myRides = await db
+      .select()
+      .from(rideRequests)
+      .where(or(eq(rideRequests.passengerId, userId), eq(rideRequests.driverId, userId)))
+      .orderBy(desc(rideRequests.createdAt))
+      .limit(30);
 
-    return res.json({ rides: myRides, total: myRides.length });
+    return res.json({ rides: myRides.map(serializeRide), total: myRides.length });
   } catch (err) {
     console.error('[rides] /requests/me error:', err);
     return res.status(500).json({ error: 'Internal server error' });
