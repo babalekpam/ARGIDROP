@@ -23,6 +23,7 @@ export default function BusinessLayout() {
     { divider: true, label: t('business.nav.marketplace') },
     { to:'/dashboard/listings', label:t('business.nav.myListings'), icon:'🏪' },
     { to:'/dashboard/marketplace', label:t('business.nav.browseMerchants'), icon:'🌍' },
+    { to:'/dashboard/food', label:t('business.nav.food'), icon:'🍽' },
     { divider: true, label: t('business.nav.account') },
     { to:'/dashboard/profile', label:t('business.nav.settings'), icon:'⚙' },
   ];

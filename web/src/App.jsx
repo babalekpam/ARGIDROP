@@ -22,6 +22,8 @@ import DeliveryTracking from './pages/business/DeliveryTracking';
 import BusinessOnboarding from './pages/business/Onboarding';
 import Listings from './pages/business/Listings';
 import Marketplace from './pages/business/Marketplace';
+import Food from './pages/business/Food';
+import FoodRestaurant from './pages/business/FoodRestaurant';
 
 // Driver
 import DriverDashboard from './pages/driver/Dashboard';
@@ -104,6 +106,8 @@ export default function App() {
             <Route path="wallet" element={<Wallet />} />
             <Route path="listings" element={<Listings />} />
             <Route path="marketplace" element={<Marketplace />} />
+            <Route path="food" element={<Food />} />
+            <Route path="food/:idOrSlug" element={<FoodRestaurant />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
