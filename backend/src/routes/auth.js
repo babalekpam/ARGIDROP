@@ -25,6 +25,11 @@ router.post('/register', async (req, res, next) => {
     const [existing] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
     if (existing) return res.status(409).json({ success: false, message: 'Email already registered' });
 
+    if (phone) {
+      const [existingPhone] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+      if (existingPhone) return res.status(409).json({ success: false, message: 'Phone number already registered. Try signing in instead.' });
+    }
+
     // Resolve market for the new user. Priority: explicit marketCode in
     // payload → derived from country → first active market as fallback. This
     // is what scopes promos and referral rewards for them.
@@ -80,7 +85,13 @@ router.post('/register', async (req, res, next) => {
       user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, status: user.status, marketCode: resolvedMarketCode },
       referral: referralResult,
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    // Unique-constraint race (email/phone taken between the check and insert)
+    if (err?.cause?.code === '23505' || err?.code === '23505') {
+      return res.status(409).json({ success: false, message: 'Email or phone number already registered. Try signing in instead.' });
+    }
+    next(err);
+  }
 });
 
 // POST /login
