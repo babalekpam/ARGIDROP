@@ -479,21 +479,21 @@ function TrustSection({ t }) {
 
 function MarketsSection({ t }) {
   const markets = [
-    { flag: '🇹🇬', name: 'Togo', city: 'Lomé', status: t('landing.markets.live', 'En direct'), statusColor: '#4ADE80' },
-    { flag: '🇧🇯', name: 'Bénin', city: 'Cotonou', status: t('landing.markets.q3', 'Q3 2026'), statusColor: '#FCD34D' },
-    { flag: '🇨🇮', name: "Côte d'Ivoire", city: 'Abidjan', status: t('landing.markets.q3', 'Q3 2026'), statusColor: '#FCD34D' },
-    { flag: '🇬🇭', name: 'Ghana', city: 'Accra', status: t('landing.markets.q4', 'Q4 2026'), statusColor: '#60A5FA' },
-    { flag: '🇸🇳', name: 'Sénégal', city: 'Dakar', status: t('landing.markets.q4', 'Q4 2026'), statusColor: '#60A5FA' },
-    { flag: '🇧🇫', name: 'Burkina Faso', city: 'Ouagadougou', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇳🇬', name: 'Nigeria', city: 'Lagos', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇲🇱', name: 'Mali', city: 'Bamako', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇳🇪', name: 'Niger', city: 'Niamey', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇬🇳', name: 'Guinée', city: 'Conakry', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇸🇱', name: 'Sierra Leone', city: 'Freetown', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇱🇷', name: 'Liberia', city: 'Monrovia', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇬🇲', name: 'Gambia', city: 'Banjul', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇬🇼', name: 'Guinée-Bissau', city: 'Bissau', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
-    { flag: '🇨🇻', name: 'Cap-Vert', city: 'Praia', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
+    { flag: '🇹🇬', name: 'Togo' },
+    { flag: '🇧🇯', name: 'Bénin' },
+    { flag: '🇨🇮', name: "Côte d'Ivoire" },
+    { flag: '🇬🇭', name: 'Ghana' },
+    { flag: '🇸🇳', name: 'Sénégal' },
+    { flag: '🇧🇫', name: 'Burkina Faso' },
+    { flag: '🇳🇬', name: 'Nigeria' },
+    { flag: '🇲🇱', name: 'Mali' },
+    { flag: '🇳🇪', name: 'Niger' },
+    { flag: '🇬🇳', name: 'Guinée' },
+    { flag: '🇸🇱', name: 'Sierra Leone' },
+    { flag: '🇱🇷', name: 'Liberia' },
+    { flag: '🇬🇲', name: 'Gambia' },
+    { flag: '🇬🇼', name: 'Guinée-Bissau' },
+    { flag: '🇨🇻', name: 'Cap-Vert' },
   ];
   return (
     <div style={{ background: C.cream, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: '72px 40px' }}>
@@ -517,11 +517,7 @@ function MarketsSection({ t }) {
             {markets.map((m) => (
               <div key={m.name} style={{ background: C.paper, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{m.flag}</span>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>{m.city}</div>
-                  <div style={{ fontSize: 11, color: m.statusColor, fontWeight: 700, marginTop: 3 }}>● {m.status}</div>
-                </div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>{m.name}</div>
               </div>
             ))}
           </div>
