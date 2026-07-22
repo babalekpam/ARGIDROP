@@ -12,7 +12,8 @@ export default function RegisterScreen({ navigation, route }) {
   const { register } = useAuth();
   const { lang } = useLang();
   const role = route?.params?.role || 'DRIVER';
-  const isMerchant = role === 'BUSINESS';
+  const isIndividual = !!route?.params?.individual;
+  const isMerchant = role === 'BUSINESS' && !isIndividual;
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '', password: '',
@@ -34,6 +35,10 @@ export default function RegisterScreen({ navigation, route }) {
         phone: form.phone, password: form.password, role,
       };
       if (isMerchant) payload.companyName = form.companyName;
+      if (isIndividual) {
+        payload.isIndividual = true;
+        payload.companyName = `${form.firstName} ${form.lastName}`.trim();
+      }
       const refCode = (form.referralCode || '').trim();
       if (refCode) payload.referralCode = refCode.toUpperCase();
       await register(payload);
@@ -53,9 +58,9 @@ export default function RegisterScreen({ navigation, route }) {
         </View>
         <View style={{ marginBottom: 24 }}>
           <Text style={s.brand}>ArgiDrop</Text>
-          <Text style={s.brandSub}>{isMerchant ? t('register.merchantSub', lang) : t('register.driverSub', lang)}</Text>
+          <Text style={s.brandSub}>{isIndividual ? t('register.consumerSub', lang) : isMerchant ? t('register.merchantSub', lang) : t('register.driverSub', lang)}</Text>
           <Text style={s.title}>{t('register.title', lang)}</Text>
-          <Text style={s.subtitle}>{isMerchant ? t('register.merchantSubtitle', lang) : t('register.driverSubtitle', lang)}</Text>
+          <Text style={s.subtitle}>{isIndividual ? t('register.consumerSubtitle', lang) : isMerchant ? t('register.merchantSubtitle', lang) : t('register.driverSubtitle', lang)}</Text>
         </View>
         <View style={s.form}>
           {isMerchant && (
@@ -105,7 +110,7 @@ export default function RegisterScreen({ navigation, route }) {
           )}
 
           <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
-            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{isMerchant ? t('register.submitMerchant', lang) : t('register.submitDriver', lang)}</Text>}
+            {loading ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{isIndividual ? t('register.submitConsumer', lang) : isMerchant ? t('register.submitMerchant', lang) : t('register.submitDriver', lang)}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginTop: 14, alignItems: 'center' }}>
             <Text style={s.link}>{t('register.alreadyAccount', lang)} <Text style={{ color: C.forest, fontWeight: '600' }}>{t('register.signin', lang)}</Text></Text>

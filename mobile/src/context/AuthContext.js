@@ -54,11 +54,11 @@ export function AuthProvider({ children }) {
 
   const register = async (data) => {
     const res = await api.post('/auth/register', data);
-    const { tokens, user: userData } = res.data;
+    const { tokens, user: userData, profile } = res.data;
     await SecureStore.setItemAsync('argidrop_token', tokens.access);
     await SecureStore.setItemAsync('argidrop_refresh', tokens.refresh);
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
-    const fullUser = attachProfile(userData, null);
+    const fullUser = attachProfile(userData, profile || null);
     setUser(fullUser);
     registerPushToken().catch(() => {});
     return fullUser;

@@ -39,6 +39,10 @@ import SettingsPasswordScreen from '../screens/merchant/SettingsPasswordScreen';
 import SettingsBusinessScreen from '../screens/merchant/SettingsBusinessScreen';
 import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
 
+// Consumer
+import ConsumerTabs from './ConsumerTabs';
+import ConsumerRestaurantScreen from '../screens/consumer/RestaurantScreen';
+
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
 import InviteScreen from '../screens/shared/InviteScreen';
@@ -58,6 +62,8 @@ function pickInitialRoute(user) {
   }
   if (user.role === 'BUSINESS') {
     const profile = user.businessProfile;
+    // Individual consumers skip merchant onboarding/KYC entirely
+    if (profile?.isIndividual) return 'ConsumerTabs';
     // Treat onboarding as incomplete if no city/address yet (filled by merchant onboarding screen)
     const onboardingComplete = !!(profile && profile.city && profile.address);
     if (!onboardingComplete) return 'MerchantOnboarding';
@@ -105,6 +111,18 @@ export default function RootNavigator() {
           <Stack.Screen name="PayoutPinSetup" component={PayoutPinSetupScreen} />
           <Stack.Screen name="EndShift" component={EndShiftScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Invite" component={InviteScreen} />
+          <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+        </>
+      ) : user.role === 'BUSINESS' && user.businessProfile?.isIndividual ? (
+        <>
+          <Stack.Screen name="ConsumerTabs" component={ConsumerTabs} />
+          <Stack.Screen name="FoodRestaurant" component={ConsumerRestaurantScreen} />
+          <Stack.Screen name="MapPicker" component={MapPickerScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
+          <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />
+          <Stack.Screen name="SettingsPersonal" component={SettingsPersonalScreen} />
+          <Stack.Screen name="SettingsPassword" component={SettingsPasswordScreen} />
           <Stack.Screen name="Invite" component={InviteScreen} />
           <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </>

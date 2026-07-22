@@ -25,6 +25,15 @@ export default function RoleSelectScreen({ navigation }) {
           <Text style={s.title}>{t('role.welcome', lang)}</Text>
           <Text style={s.subtitle}>{t('role.howUse', lang)}</Text>
 
+          <TouchableOpacity style={s.card} onPress={() => navigation.navigate('Register', { role: 'BUSINESS', individual: true })} activeOpacity={0.85}>
+            <View style={s.iconWrap}><Ionicons name="bag-handle-outline" size={26} color={C.forest} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardTitle}>{t('role.consumer.title', lang)}</Text>
+              <Text style={s.cardDesc}>{t('role.consumer.desc', lang)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={C.bronze} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={s.card} onPress={() => navigation.navigate('Register', { role: 'BUSINESS' })} activeOpacity={0.85}>
             <View style={s.iconWrap}><Ionicons name="storefront-outline" size={26} color={C.forest} /></View>
             <View style={{ flex: 1 }}>
