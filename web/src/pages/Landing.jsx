@@ -71,7 +71,7 @@ function HeroSection({ t }) {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '6px 14px', marginBottom: 28 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ADE80', display: 'inline-block', boxShadow: '0 0 6px #4ADE80' }} />
           <span style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
-            {t('landing.hero.badge', 'Togo · Bénin · Côte d\'Ivoire · Ghana · Sénégal · Nigeria')}
+            {t('landing.hero.badge', 'Togo · Bénin · Côte d\'Ivoire · Burkina Faso · Ghana · Sénégal · Nigeria')}
           </span>
         </div>
 
@@ -464,7 +464,7 @@ function TrustSection({ t }) {
           { v: '15 min', l: t('landing.trust.stat1', 'délai moyen d\'assignation'), icon: '⚡' },
           { v: '3 scans', l: t('landing.trust.stat2', 'vérifications QR par livraison'), icon: '🔐' },
           { v: '15%', l: t('landing.trust.stat3', 'commission — la plus basse'), icon: '💰' },
-          { v: '6 🌍', l: t('landing.trust.stat4', 'pays CEDEAO au lancement'), icon: '🗺️' },
+          { v: '7 🌍', l: t('landing.trust.stat4', 'pays CEDEAO au lancement'), icon: '🗺️' },
         ].map(({ v, l, icon }, i) => (
           <div key={v} style={{ padding: '32px 24px', textAlign: 'center', borderRight: i < 3 ? `1px solid ${C.borderSoft}` : 'none' }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
@@ -484,6 +484,7 @@ function MarketsSection({ t }) {
     { flag: '🇨🇮', name: "Côte d'Ivoire", city: 'Abidjan', status: t('landing.markets.q3', 'Q3 2026'), statusColor: '#FCD34D' },
     { flag: '🇬🇭', name: 'Ghana', city: 'Accra', status: t('landing.markets.q4', 'Q4 2026'), statusColor: '#60A5FA' },
     { flag: '🇸🇳', name: 'Sénégal', city: 'Dakar', status: t('landing.markets.q4', 'Q4 2026'), statusColor: '#60A5FA' },
+    { flag: '🇧🇫', name: 'Burkina Faso', city: 'Ouagadougou', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
     { flag: '🇳🇬', name: 'Nigeria', city: 'Lagos', status: t('landing.markets.2027', '2027'), statusColor: '#C084FC' },
   ];
   return (

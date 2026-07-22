@@ -18,7 +18,7 @@ export default {
       business: 'Business',
     },
     hero: {
-      badge: 'Togo · Benin · Côte d\'Ivoire · Ghana · Senegal · Nigeria',
+      badge: 'Togo · Benin · Côte d\'Ivoire · Burkina Faso · Ghana · Senegal · Nigeria',
       line1: 'West Africa',
       line2: 'moves',
       line3: 'with ArgiDrop.',
