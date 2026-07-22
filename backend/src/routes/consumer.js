@@ -23,6 +23,8 @@ const CONSUMER_FEE_PCT = 0.05;
 const PACKAGE_TYPES = ['DOCUMENT', 'SMALL_PARCEL', 'MEDIUM_PARCEL', 'LARGE_PARCEL', 'FOOD', 'FRAGILE'];
 const URGENCY_LEVELS = ['STANDARD', 'EXPRESS', 'URGENT'];
 const URGENCY_MULTIPLIER = { STANDARD: 1.0, EXPRESS: 1.3, URGENT: 1.6 };
+// The jobs.urgency enum is STANDARD | EXPRESS | INSTANT — map the API's "URGENT" onto INSTANT.
+const URGENCY_DB_MAP = { STANDARD: 'STANDARD', EXPRESS: 'EXPRESS', URGENT: 'INSTANT' };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -143,24 +145,23 @@ router.post('/order', authenticate, async (req, res) => {
         pickupAddress,
         pickupLat: String(pickupLat),
         pickupLng: String(pickupLng),
-        pickupPhone,
+        pickupContactPhone: pickupPhone,
         dropoffAddress,
         dropoffLat: String(dropoffLat),
         dropoffLng: String(dropoffLng),
-        dropoffPhone,
+        dropoffContactPhone: dropoffPhone,
         packageType,
         packageDescription: packageDescription || null,
-        weightKg: String(weightKg),
-        urgency,
-        paymentMethod,
-        cashOnDelivery: cashOnDelivery || false,
-        notes: notes || null,
-        estimatedPrice: total,
+        weightKg: parseFloat(weightKg).toFixed(2),
+        urgency: URGENCY_DB_MAP[urgency],
+        dropoffNotes: notes || null,
+        priceOffered: total.toFixed(2),
         currency: 'XOF',
-        status: 'PENDING',
+        status: 'POSTED',
         trackingToken,
-        consumerSurcharge: consumerFee,
+        consumerSurcharge: consumerFee.toFixed(2),
         isConsumerOrder: true,
+        estimatedDistanceKm: distanceKm.toFixed(2),
       })
       .returning();
 
@@ -212,7 +213,7 @@ router.get('/orders/:trackingToken', async (req, res) => {
         dropoffAddress: jobs.dropoffAddress,
         packageType: jobs.packageType,
         urgency: jobs.urgency,
-        estimatedPrice: jobs.estimatedPrice,
+        estimatedPrice: jobs.priceOffered,
         currency: jobs.currency,
         createdAt: jobs.createdAt,
         updatedAt: jobs.updatedAt,

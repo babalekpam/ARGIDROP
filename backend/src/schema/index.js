@@ -362,6 +362,11 @@ const jobs = pgTable('jobs', {
   deliveryScanLng: decimal('delivery_scan_lng', { precision: 10, scale: 7 }),
   deliveryProofUrl: text('delivery_proof_url'),
 
+  // Consumer (B2C) orders — individual sender who created the job
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  isConsumerOrder: boolean('is_consumer_order').default(false),
+  consumerSurcharge: decimal('consumer_surcharge', { precision: 10, scale: 2 }).default('0.00'),
+
   // Status
   status: jobStatusEnum('status').default('DRAFT'),
   cancelReason: text('cancel_reason'),
