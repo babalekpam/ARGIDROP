@@ -13,7 +13,7 @@ const router = express.Router();
 // POST /register
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, phone, password, firstName, lastName, role, companyName, vehicleType, referralCode, marketCode, country } = req.body;
+    const { email, phone, password, firstName, lastName, role, companyName, vehicleType, referralCode, marketCode, country, isIndividual } = req.body;
     if (!email || !password || !firstName || !lastName || !role) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -56,7 +56,7 @@ router.post('/register', async (req, res, next) => {
 
     // Create role-specific profile
     if (role === 'BUSINESS') {
-      await db.insert(businesses).values({ userId: user.id, companyName: companyName || `${firstName}'s Business` });
+      await db.insert(businesses).values({ userId: user.id, companyName: companyName || `${firstName}'s Business`, isIndividual: !!isIndividual });
     } else if (role === 'DRIVER') {
       await db.insert(drivers).values({ userId: user.id, vehicleType: vehicleType || 'CAR' });
     }

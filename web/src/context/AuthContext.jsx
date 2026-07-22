@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
     api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
     setUser(user);
     setProfile(profile);
-    return user;
+    return { ...user, isIndividual: !!profile?.isIndividual };
   };
 
   const register = async (data) => {

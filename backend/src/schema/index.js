@@ -116,6 +116,7 @@ const businesses = pgTable('businesses', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   companyName: text('company_name').notNull(),
+  isIndividual: boolean('is_individual').default(false),
   taxId: text('tax_id'),
   businessType: text('business_type'),
   website: text('website'),

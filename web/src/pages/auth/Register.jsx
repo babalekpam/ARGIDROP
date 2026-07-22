@@ -29,12 +29,12 @@ export default function Register() {
     const submittedType = accountType;
     try {
       const payload = submittedType === 'INDIVIDUAL'
-        ? { ...form, companyName: `${form.firstName} ${form.lastName}`.trim() }
+        ? { ...form, companyName: `${form.firstName} ${form.lastName}`.trim(), isIndividual: true }
         : form;
       const user = await register(payload);
       toast.success(t('auth.register.created'));
       const dest = user.role === 'DRIVER' ? '/driver'
-        : submittedType === 'INDIVIDUAL' ? '/dashboard'
+        : submittedType === 'INDIVIDUAL' ? '/dashboard/food'
         : '/onboarding';
       navigate(dest);
     } catch (err) {
