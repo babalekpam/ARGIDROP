@@ -12,18 +12,30 @@ export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [form, setForm] = useState({ firstName:'', lastName:'', email:'', phone:'', password:'', role:'BUSINESS' });
+  const [accountType, setAccountType] = useState('INDIVIDUAL');
   const [loading, setLoading] = useState(false);
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const pickType = type => {
+    setAccountType(type);
+    setForm(p => ({ ...p, role: type === 'DRIVER' ? 'DRIVER' : 'BUSINESS' }));
+  };
 
   const submit = async e => {
     e.preventDefault();
     if (form.password.length < 8) return toast.error(t('auth.register.shortPassword'));
     setLoading(true);
+    const submittedType = accountType;
     try {
-      const user = await register(form);
+      const payload = submittedType === 'INDIVIDUAL'
+        ? { ...form, companyName: `${form.firstName} ${form.lastName}`.trim() }
+        : form;
+      const user = await register(payload);
       toast.success(t('auth.register.created'));
-      const dest = user.role === 'DRIVER' ? '/driver' : user.role === 'BUSINESS' ? '/onboarding' : '/dashboard';
+      const dest = user.role === 'DRIVER' ? '/driver'
+        : submittedType === 'INDIVIDUAL' ? '/dashboard'
+        : '/onboarding';
       navigate(dest);
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || t('auth.register.failed'));
@@ -44,9 +56,9 @@ export default function Register() {
 
         <div style={{ background:C.paper, border:`1px solid ${C.border}`, borderRadius:8, padding:32 }}>
           <div style={{ display:'flex', background:C.cream, borderRadius:6, padding:3, marginBottom:24, border:`1px solid ${C.border}` }}>
-            {[['BUSINESS', t('auth.register.iSend')],['DRIVER', t('auth.register.iDeliver')]].map(([r,l]) => (
-              <button key={r} type="button" onClick={() => setForm(p=>({...p,role:r}))}
-                style={{ flex:1, padding:'9px', borderRadius:4, border:'none', cursor:'pointer', fontSize:13, fontWeight:500, background:form.role===r?C.forest:'transparent', color:form.role===r?C.paper:C.muted, fontFamily:'inherit', transition:'all 0.15s' }}>
+            {[['INDIVIDUAL', t('auth.register.iOrder')],['BUSINESS', t('auth.register.iSend')],['DRIVER', t('auth.register.iDeliver')]].map(([r,l]) => (
+              <button key={r} type="button" onClick={() => pickType(r)}
+                style={{ flex:1, padding:'9px', borderRadius:4, border:'none', cursor:'pointer', fontSize:13, fontWeight:500, background:accountType===r?C.forest:'transparent', color:accountType===r?C.paper:C.muted, fontFamily:'inherit', transition:'all 0.15s' }}>
                 {l}
               </button>
             ))}
@@ -63,7 +75,7 @@ export default function Register() {
 
             <button type="submit" disabled={loading}
               style={{ width:'100%', background:C.forest, color:C.paper, border:'none', borderRadius:4, padding:'13px', fontWeight:500, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
-              {loading ? t('auth.register.submitting') : (form.role === 'BUSINESS' ? t('auth.register.submitBusiness') : t('auth.register.submitDriver'))}
+              {loading ? t('auth.register.submitting') : (accountType === 'INDIVIDUAL' ? t('auth.register.submitIndividual') : accountType === 'BUSINESS' ? t('auth.register.submitBusiness') : t('auth.register.submitDriver'))}
             </button>
           </form>
         </div>

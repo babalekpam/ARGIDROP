@@ -197,6 +197,7 @@ export default {
     },
     register: {
       eyebrow: 'Créer un compte',
+      iOrder: 'Je commande',
       iSend: 'J\'envoie des livraisons',
       iDeliver: 'Je livre',
       firstName: 'Prénom',
@@ -205,6 +206,7 @@ export default {
       phone: 'Numéro de téléphone',
       password: 'Mot de passe',
       passwordHint: 'Au moins 8 caractères',
+      submitIndividual: 'Créer mon compte',
       submitBusiness: 'Créer un compte entreprise',
       submitDriver: 'Créer un compte livreur',
       submitting: 'Création du compte…',
