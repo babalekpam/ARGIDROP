@@ -37,3 +37,10 @@ nevral-api, nt-fitness-api, raiz-api. Touch ONLY argidrop. Up 265+ days.
 
 **Never overwrite** the server's `/opt/argidrop/backend/.env` (prod secrets) or
 delete server-side files (no rsync --delete).
+
+## Consumer service activation (July 2026)
+Prod `platform_settings` has `CONSUMER_POOL_BUSINESS_ID` pointing to the
+"ArgiDrop Consumer Pool" business (owner user `consumer-pool@argidrop.com`,
+random unusable password). Without this row, `POST /consumer/order` returns 503.
+Dev uses a different pool business id — never copy ids between envs; look them
+up via the settings row.
