@@ -935,6 +935,20 @@ const corporateInvoices = pgTable('corporate_invoices', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ─── BUSINESS STAFF (team members) ───
+// Additional user accounts operating a merchant's business. The owner stays
+// businesses.userId (1:1); staff link through this table. Staff get
+// operational access (jobs, listings, orders, menu) — wallet/payout/corporate
+// endpoints stay owner-only.
+const businessStaff = pgTable('business_staff', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  role: text('role').notNull().default('STAFF'), // STAFF | MANAGER (reserved)
+  invitedBy: uuid('invited_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ─── PRODUCT ORDERS (consumer shopping — merchant_listings marketplace) ───
 const productOrders = pgTable('product_orders', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -1043,4 +1057,6 @@ module.exports = {
   rideRequests,
   // Consumer shopping (marketplace orders)
   productOrders, productOrderItems,
+  // Merchant team members
+  businessStaff,
 };

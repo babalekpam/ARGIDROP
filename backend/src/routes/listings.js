@@ -11,6 +11,7 @@ const {
   merchantSubscriptions, users, productOrders, productOrderItems
 } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const { uploadFile } = require('../services/storage');
 const { TIER_PHOTO_LIMITS, TIER_FEES, recommendedFee } = require('../services/pricing');
 
@@ -22,7 +23,7 @@ const router = express.Router();
 router.get('/subscription', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
 
     let [sub] = await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.businessId, biz.id)).limit(1);
@@ -61,7 +62,7 @@ router.get('/subscription', authenticate, requireRole('BUSINESS'), async (req, r
 router.get('/profile/me', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
     let [profile] = await db.select().from(merchantProfiles).where(eq(merchantProfiles.businessId, biz.id)).limit(1);
     if (!profile) {
@@ -74,7 +75,7 @@ router.get('/profile/me', authenticate, requireRole('BUSINESS'), async (req, res
 router.patch('/profile/me', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
 
     const allowedFields = ['tagline', 'taglineEn', 'taglineFr', 'categories', 'openingHours',
@@ -101,7 +102,7 @@ router.post('/profile/photo', authenticate, requireRole('BUSINESS'), upload.sing
     const db = getDB();
     const { type } = req.body; // 'cover' | 'logo'
     if (!req.file) return res.status(400).json({ success: false, message: 'File required' });
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     const fileUrl = await uploadFile(req.file, `merchants/${biz.id}/profile`);
     const updateData = type === 'cover' ? { coverPhotoUrl: fileUrl } : { logoUrl: fileUrl };
     updateData.updatedAt = new Date();
@@ -115,7 +116,7 @@ router.post('/profile/photo', authenticate, requireRole('BUSINESS'), upload.sing
 router.get('/listings', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     const listings = await db.select().from(merchantListings)
       .where(and(eq(merchantListings.businessId, biz.id), sql`${merchantListings.status} != 'ARCHIVED'`))
       .orderBy(asc(merchantListings.sortOrder), desc(merchantListings.createdAt));
@@ -135,7 +136,7 @@ router.get('/listings', authenticate, requireRole('BUSINESS'), async (req, res, 
 router.post('/listings', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     const { name, nameFr, nameEn, description, descriptionFr, descriptionEn,
       price, currency, unit, category, listingType, tags } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Listing name is required' });
@@ -154,7 +155,7 @@ router.post('/listings', authenticate, requireRole('BUSINESS'), async (req, res,
 router.patch('/listings/:id', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     const allowed = ['name', 'nameFr', 'nameEn', 'description', 'descriptionFr', 'descriptionEn',
       'price', 'unit', 'category', 'inStock', 'status', 'sortOrder', 'tags'];
     const updates = { updatedAt: new Date() };
@@ -169,7 +170,7 @@ router.patch('/listings/:id', authenticate, requireRole('BUSINESS'), async (req,
 router.delete('/listings/:id', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     await db.update(merchantListings).set({ status: 'ARCHIVED', updatedAt: new Date() })
       .where(and(eq(merchantListings.id, req.params.id), eq(merchantListings.businessId, biz.id)));
     res.json({ success: true });
@@ -181,7 +182,7 @@ router.delete('/listings/:id', authenticate, requireRole('BUSINESS'), async (req
 router.post('/listings/:id/photos', authenticate, requireRole('BUSINESS'), upload.array('photos', 10), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
 
     // Check photo limit
     const [sub] = await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.businessId, biz.id)).limit(1);
@@ -232,7 +233,7 @@ router.post('/listings/:id/photos', authenticate, requireRole('BUSINESS'), uploa
 router.delete('/photos/:photoId', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     await db.delete(listingPhotos)
       .where(and(eq(listingPhotos.id, req.params.photoId), eq(listingPhotos.businessId, biz.id)));
     res.json({ success: true });
@@ -242,7 +243,7 @@ router.delete('/photos/:photoId', authenticate, requireRole('BUSINESS'), async (
 router.patch('/photos/:photoId/primary', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     const [photo] = await db.select().from(listingPhotos)
       .where(and(eq(listingPhotos.id, req.params.photoId), eq(listingPhotos.businessId, biz.id))).limit(1);
     if (!photo) return res.status(404).json({ success: false, message: 'Photo not found' });
@@ -447,7 +448,7 @@ router.get('/orders/me', authenticate, async (req, res, next) => {
 router.get('/orders/received', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
 
     const orders = await db.select({
@@ -482,7 +483,7 @@ router.patch('/orders/:id/status', authenticate, requireRole('BUSINESS'), async 
   try {
     const db = getDB();
     const { status } = req.body;
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business not found' });
 
     const [order] = await db.select().from(productOrders)

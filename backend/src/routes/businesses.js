@@ -1,9 +1,12 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { eq, desc, sql } = require('drizzle-orm');
 const multer = require('multer');
 const { getDB } = require('../config/database');
-const { businesses, users, jobs, payments, businessDocuments } = require('../schema');
+const { businesses, users, jobs, payments, businessDocuments, businessStaff } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const { uploadFile } = require('../services/storage');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -36,7 +39,7 @@ router.post('/onboarding', authenticate, requireRole('BUSINESS'), async (req, re
 router.get('/me', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(db, req.user.id);
     if (!biz) return res.status(404).json({ success: false, message: 'Business profile not found' });
     res.json(biz);
   } catch (err) { next(err); }
@@ -129,7 +132,7 @@ router.patch('/profile', authenticate, requireRole('BUSINESS'), async (req, res,
 router.get('/dashboard', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const business = await resolveBusinessForUser(db, req.user.id);
     if (!business) return res.status(404).json({ success: false, message: 'Business not found' });
 
     const allJobs = await db.select().from(jobs).where(eq(jobs.businessId, business.id));
@@ -176,6 +179,107 @@ router.get('/invoices', authenticate, requireRole('BUSINESS'), async (req, res, 
       .limit(100);
 
     res.json({ success: true, invoices: myPayments });
+  } catch (err) { next(err); }
+});
+
+// ─── TEAM MEMBERS ────────────────────────────────────────────────────────────
+// Staff accounts operate the owner's business through resolveBusinessForUser.
+// Only the owner can add/remove members; anyone on the team can list them.
+
+// GET /team — owner + staff members of my business
+router.get('/team', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const business = await resolveBusinessForUser(db, req.user.id);
+    if (!business) return res.status(404).json({ success: false, message: 'Business not found' });
+
+    const [owner] = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, phone: users.phone })
+      .from(users).where(eq(users.id, business.userId)).limit(1);
+
+    const staff = await db.select({
+      staffId: businessStaff.id,
+      role: businessStaff.role,
+      createdAt: businessStaff.createdAt,
+      user: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, phone: users.phone, status: users.status },
+    })
+      .from(businessStaff)
+      .leftJoin(users, eq(businessStaff.userId, users.id))
+      .where(eq(businessStaff.businessId, business.id))
+      .orderBy(desc(businessStaff.createdAt));
+
+    res.json({ success: true, owner, staff, myRole: business.staffRole });
+  } catch (err) { next(err); }
+});
+
+// POST /team — owner creates a staff account (returns a one-time temp password)
+router.post('/team', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const business = await resolveBusinessForUser(db, req.user.id);
+    if (!business) return res.status(404).json({ success: false, message: 'Business not found' });
+    if (business.staffRole !== 'OWNER') {
+      return res.status(403).json({ success: false, message: 'Only the business owner can add team members' });
+    }
+
+    const { firstName, lastName, email, phone } = req.body;
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({ success: false, message: 'firstName, lastName and email are required' });
+    }
+
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+    if (existing) return res.status(409).json({ success: false, message: 'A user with this email already exists' });
+
+    // One-time password shown to the owner once; the staff member should
+    // change it after first sign-in.
+    const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 10);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const [staffUser] = await db.insert(users).values({
+      email: email.toLowerCase(),
+      phone: phone || null,
+      passwordHash,
+      firstName,
+      lastName,
+      role: 'BUSINESS',
+      status: 'ACTIVE',
+    }).returning();
+
+    const [member] = await db.insert(businessStaff).values({
+      businessId: business.id,
+      userId: staffUser.id,
+      role: 'STAFF',
+      invitedBy: req.user.id,
+    }).returning();
+
+    res.status(201).json({
+      success: true,
+      member: { staffId: member.id, role: member.role, user: { id: staffUser.id, firstName, lastName, email: staffUser.email, phone: staffUser.phone } },
+      tempPassword,
+    });
+  } catch (err) { next(err); }
+});
+
+// DELETE /team/:staffId — owner removes a staff member (their account is suspended)
+router.delete('/team/:staffId', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const business = await resolveBusinessForUser(db, req.user.id);
+    if (!business) return res.status(404).json({ success: false, message: 'Business not found' });
+    if (business.staffRole !== 'OWNER') {
+      return res.status(403).json({ success: false, message: 'Only the business owner can remove team members' });
+    }
+
+    const [member] = await db.select().from(businessStaff)
+      .where(sql`${businessStaff.id} = ${req.params.staffId} AND ${businessStaff.businessId} = ${business.id}`)
+      .limit(1);
+    if (!member) return res.status(404).json({ success: false, message: 'Team member not found' });
+
+    await db.delete(businessStaff).where(eq(businessStaff.id, member.id));
+    // Removed staff can no longer sign in (their account only existed to
+    // operate this business).
+    await db.update(users).set({ status: 'SUSPENDED' }).where(eq(users.id, member.userId));
+
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 

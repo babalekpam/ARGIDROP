@@ -7,6 +7,7 @@ const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
 const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, payments, zones, messages } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const { validatePromo, recordRedemption } = require('../services/promo');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
@@ -29,7 +30,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 *
 router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const business = await resolveBusinessForUser(db, req.user.id);
     if (!business) return res.status(404).json({ success: false, message: 'Business profile not found' });
 
     const {
@@ -315,7 +316,7 @@ router.get('/', authenticate, async (req, res, next) => {
     const conditions = [];
 
     if (req.user.role === 'BUSINESS') {
-      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      const business = await resolveBusinessForUser(db, req.user.id);
       if (!business) return res.json({ success: true, jobs: [], total: 0 });
       conditions.push(eq(jobs.businessId, business.id));
     } else if (req.user.role === 'DRIVER') {
@@ -453,7 +454,7 @@ router.post('/:id/release-preclaim', authenticate, requireRole('DRIVER'), async 
 router.post('/:id/stop-recurrence', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const business = await resolveBusinessForUser(db, req.user.id);
     if (!business) return res.status(404).json({ success: false, message: 'Business profile not found' });
 
     const [job] = await db.select().from(jobs)
@@ -539,7 +540,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
     // Authorization: caller must be the owning business, the assigned driver, or an admin
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || result.business?.id !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -580,7 +581,7 @@ router.get('/:id/proof', authenticate, async (req, res, next) => {
 
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -674,7 +675,7 @@ router.post('/:id/cancel', authenticate, async (req, res, next) => {
     // Authorization: only the owning business, the assigned driver, or an admin may cancel
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -798,7 +799,7 @@ router.post('/:id/rate', authenticate, async (req, res, next) => {
     // Verify caller participated in this job and derive who is being rated
     let ratedUserId;
     if (req.user.role === 'BUSINESS') {
-      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      const business = await resolveBusinessForUser(db, req.user.id);
       if (!business || job.businessId !== business.id) {
         return res.status(403).json({ success: false, message: 'You did not place this job' });
       }
@@ -853,7 +854,7 @@ router.get('/:id/messages', authenticate, async (req, res, next) => {
 
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const biz = await resolveBusinessForUser(db, req.user.id);
         if (!biz || job.businessId !== biz.id) return res.status(403).json({ success: false, message: 'Access denied' });
       } else if (req.user.role === 'DRIVER') {
         const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
@@ -881,7 +882,7 @@ router.post('/:id/dispute', authenticate, async (req, res, next) => {
     // Authorization: only the owning business or the assigned driver may raise a dispute
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }

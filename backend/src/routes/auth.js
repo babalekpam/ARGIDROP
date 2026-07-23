@@ -7,6 +7,7 @@ const { users, businesses, drivers, otpCodes, businessDocuments, driverDocuments
 const { authenticate, generateTokens } = require('../middleware/auth');
 const { sendSMS } = require('../services/notification');
 const { attributeAtSignup } = require('../services/referral');
+const { resolveBusinessForUser } = require('../services/business');
 
 const router = express.Router();
 
@@ -131,7 +132,9 @@ router.post('/login', async (req, res, next) => {
 // own documentsCount-only signal because driver docs are graded individually).
 async function loadProfileWithDocs(db, user) {
   if (user.role === 'BUSINESS') {
-    const [b] = await db.select().from(businesses).where(eq(businesses.userId, user.id)).limit(1);
+    // Owner or staff member — staff operate their employer's business and get
+    // its profile (with staffRole) so the app routes them like a merchant.
+    const b = await resolveBusinessForUser(db, user.id);
     if (!b) return null;
     const [{ count: docCount }] = await db
       .select({ count: sql`count(*)::int` })

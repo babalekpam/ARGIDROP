@@ -7,6 +7,7 @@ const express = require('express');
 const { eq, and, desc, ilike } = require('drizzle-orm');
 const { getDB } = require('../config/database');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const {
   restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
   businesses, users, drivers, zones,
@@ -221,13 +222,9 @@ router.post('/:restaurantId/menu', authenticate, async (req, res) => {
 
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
-    const [biz] = await getDB()
-      .select({ userId: businesses.userId })
-      .from(businesses)
-      .where(eq(businesses.id, restaurant.businessId))
-      .limit(1);
+    const userBiz = await resolveBusinessForUser(getDB(), req.user.id);
 
-    if (!biz || (biz.userId !== req.user.id && req.user.role !== 'ADMIN')) {
+    if ((userBiz?.id !== restaurant.businessId) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -271,11 +268,7 @@ router.post('/:restaurantId/menu', authenticate, async (req, res) => {
 router.post('/restaurants/apply', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, req.user.id))
-      .limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
 
     if (!biz) return res.status(404).json({ error: 'Business profile not found' });
     if (biz.verificationStatus !== 'APPROVED') {
@@ -342,7 +335,7 @@ router.post('/restaurants/apply', authenticate, requireRole('BUSINESS'), async (
 router.get('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
     if (!biz) return res.status(404).json({ error: 'Business not found' });
 
     const [restaurant] = await d.select().from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);
@@ -363,7 +356,7 @@ router.get('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (re
 router.patch('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
     if (!biz) return res.status(404).json({ error: 'Business not found' });
 
     const [existing] = await d.select({ id: restaurants.id, status: restaurants.status }).from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);

@@ -6,6 +6,7 @@ const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
 const { jobs, businesses, drivers, users } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const { scanPickupCode, scanDeliveryCode, ScanError } = require('../services/qr');
 const { getIO } = require('../socket');
 const { sendSMS, sendPushNotification } = require('../services/notification');
@@ -24,7 +25,7 @@ router.get('/jobs/:id/pickup-qr', authenticate, async (req, res, next) => {
 
     // Only the business who created it can access the pickup QR
     if (req.user.role === 'BUSINESS') {
-      const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      const biz = await resolveBusinessForUser(db, req.user.id);
       if (!biz || biz.id !== job.businessId) return res.status(403).json({ success: false, message: 'Not authorized' });
     } else if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Not authorized' });
