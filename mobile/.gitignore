@@ -8,3 +8,4 @@ dist/
 credentials/
 *.p8
 asc_key.p8
+play-key.json

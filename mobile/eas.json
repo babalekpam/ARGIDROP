@@ -52,7 +52,8 @@
   "submit": {
     "production": {
       "android": {
-        "track": "internal"
+        "track": "internal",
+        "serviceAccountKeyPath": "./play-key.json"
       },
       "ios": {
         "appleTeamId": "Z82KB5AR7N",
