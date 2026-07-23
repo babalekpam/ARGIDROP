@@ -19,6 +19,7 @@ const paymentProviderEnum = pgEnum('payment_provider', [
   'FLUTTERWAVE', 'PAYSTACK', 'STRIPE', 'BANK_TRANSFER',
   'MTN_MOMO', 'ORANGE_MONEY', 'WAVE', 'MOOV', 'AIRTEL_MONEY', 'MPESA',
   'TMONEY', 'FLOOZ', 'VODAFONE_CASH', 'AIRTELTIGO_MONEY', 'TIGO_CASH', 'FREE_MONEY',
+  'WALLET', // internal — job funded from the merchant's ArgiDrop wallet
 ]);
 const docTypeEnum = pgEnum('doc_type', [
   // Identity
@@ -57,6 +58,18 @@ const foodOrderStatusEnum = pgEnum('food_order_status', [
   'PICKED_UP', 'DELIVERED', 'CANCELLED', 'REFUNDED',
 ]);
 const restaurantStatusEnum = pgEnum('restaurant_status', ['PENDING', 'ACTIVE', 'SUSPENDED', 'CLOSED']);
+
+// ─── PRODUCT ORDER (shop/marketplace) ENUMS ───
+// Mirrors food_order_status so shared order UIs can treat both verticals alike.
+const productOrderStatusEnum = pgEnum('product_order_status', [
+  'PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP',
+  'PICKED_UP', 'DELIVERED', 'CANCELLED', 'REFUNDED',
+]);
+
+// ─── RIDE-HAILING ENUMS ───
+const rideStatusEnum = pgEnum('ride_status', ['SEARCHING', 'MATCHED', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
+// Ride vehicle types are consumer-facing (MOTO/ZEMIDJAN map onto drivers.vehicle_type MOTORCYCLE)
+const rideVehicleTypeEnum = pgEnum('ride_vehicle_type', ['MOTO', 'ZEMIDJAN', 'CAR', 'TRICYCLE']);
 
 // ─── CORPORATE ACCOUNT ENUMS ───
 const corporateAccountStatusEnum = pgEnum('corporate_account_status', ['ACTIVE', 'SUSPENDED', 'CLOSED']);
@@ -922,6 +935,97 @@ const corporateInvoices = pgTable('corporate_invoices', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ─── BUSINESS STAFF (team members) ───
+// Additional user accounts operating a merchant's business. The owner stays
+// businesses.userId (1:1); staff link through this table. Staff get
+// operational access (jobs, listings, orders, menu) — wallet/payout/corporate
+// endpoints stay owner-only.
+const businessStaff = pgTable('business_staff', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  role: text('role').notNull().default('STAFF'), // STAFF | MANAGER (reserved)
+  invitedBy: uuid('invited_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ─── PRODUCT ORDERS (consumer shopping — merchant_listings marketplace) ───
+const productOrders = pgTable('product_orders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id).notNull(), // the merchant
+  customerId: uuid('customer_id').references(() => users.id).notNull(),
+  driverId: uuid('driver_id').references(() => drivers.id),
+  trackingToken: text('tracking_token').unique().notNull(),
+  status: productOrderStatusEnum('status').default('PENDING'),
+  // Delivery address
+  deliveryAddress: text('delivery_address').notNull(),
+  deliveryLat: decimal('delivery_lat', { precision: 10, scale: 7 }),
+  deliveryLng: decimal('delivery_lng', { precision: 10, scale: 7 }),
+  deliveryNotes: text('delivery_notes'),
+  // Financials
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  deliveryFee: decimal('delivery_fee', { precision: 8, scale: 2 }).notNull(),
+  serviceFee: decimal('service_fee', { precision: 8, scale: 2 }).default('0.00'),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0.00'),
+  total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  // Payment
+  paymentProvider: paymentProviderEnum('payment_provider'),
+  paymentRef: text('payment_ref'),
+  paymentConfirmedAt: timestamp('payment_confirmed_at'),
+  cashOnDelivery: boolean('cash_on_delivery').default(false),
+  // Timing
+  confirmedAt: timestamp('confirmed_at'),
+  readyAt: timestamp('ready_at'),
+  pickedUpAt: timestamp('picked_up_at'),
+  deliveredAt: timestamp('delivered_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  zoneId: uuid('zone_id').references(() => zones.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+const productOrderItems = pgTable('product_order_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').references(() => productOrders.id, { onDelete: 'cascade' }).notNull(),
+  listingId: uuid('listing_id').references(() => merchantListings.id).notNull(),
+  // Name snapshot so history/invoices stay readable if the listing is edited or archived
+  name: text('name').notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ─── RIDE REQUESTS (ride-hailing vertical — motos, zémidjans, cars) ───
+const rideRequests = pgTable('ride_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  passengerId: uuid('passenger_id').references(() => users.id).notNull(),
+  // The driver's users.id (not drivers.id) — matches socket rooms + auth checks
+  driverId: uuid('driver_id').references(() => users.id),
+  fromAddress: text('from_address').notNull(),
+  fromLat: decimal('from_lat', { precision: 10, scale: 7 }).notNull(),
+  fromLng: decimal('from_lng', { precision: 10, scale: 7 }).notNull(),
+  toAddress: text('to_address').notNull(),
+  toLat: decimal('to_lat', { precision: 10, scale: 7 }).notNull(),
+  toLng: decimal('to_lng', { precision: 10, scale: 7 }).notNull(),
+  vehicleType: rideVehicleTypeEnum('vehicle_type').notNull(),
+  estimatedPrice: integer('estimated_price').notNull(), // XOF, whole francs
+  finalPrice: integer('final_price'),
+  currency: text('currency').default('XOF'),
+  status: rideStatusEnum('status').notNull().default('SEARCHING'),
+  trackingToken: text('tracking_token').unique().notNull(),
+  paymentMethod: text('payment_method').notNull(), // 'CASH' today; momo later
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  acceptedAt: timestamp('accepted_at'),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+});
+
 module.exports = {
   // Enums
   userRoleEnum, userStatusEnum, verificationStatusEnum, vehicleTypeEnum,
@@ -932,6 +1036,7 @@ module.exports = {
   referralStatusEnum, promoStatusEnum, promoDiscountTypeEnum, promoRoleScopeEnum,
   driverLevelEnum, foodOrderStatusEnum, restaurantStatusEnum,
   corporateAccountStatusEnum, corporateBillingCycleEnum,
+  rideStatusEnum, rideVehicleTypeEnum, productOrderStatusEnum,
   // Core tables
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
@@ -948,4 +1053,10 @@ module.exports = {
   restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
   // Corporate / enterprise
   corporateAccounts, corporateInvoices,
+  // Ride-hailing vertical
+  rideRequests,
+  // Consumer shopping (marketplace orders)
+  productOrders, productOrderItems,
+  // Merchant team members
+  businessStaff,
 };

@@ -47,6 +47,24 @@ Merchants can now schedule deliveries up to 90 days ahead (≥1h lead).
 
 **Migration:** `backend/migrations/20260525_scheduled_deliveries.sql` (idempotent — uses `IF NOT EXISTS` + an enum-value `DO $$ ... END $$` guard). Already applied to local dev DB and to production.
 
+### Consumer & merchant roadmap sprint (July 2026)
+
+**Ride requests persisted.** `ride_requests` table (+ `ride_status` / `ride_vehicle_type` enums, migration `20260722_ride_requests.sql`) replaces the in-memory Map in `backend/src/routes/rides.js`. Status transitions use conditional UPDATEs guarded on the expected current status. Wire format unchanged.
+
+**Consumer shopping vertical.** `product_orders` + `product_order_items` (migration `20260722_product_orders.sql`). `POST /listings/orders` orders against a merchant's `merchant_listings` (800 XOF delivery + 3% service fee, same defaults as food); `GET /listings/orders/me`, `GET /listings/orders/received`, `PATCH /listings/orders/:id/status` (guarded flow PENDING→CONFIRMED→READY_FOR_PICKUP→PICKED_UP→DELIVERED, cancel from early states). Mobile: `Shop` tab (`ShopsScreen`), `ShopMerchantScreen` (browse/cart/COD checkout); consumer Home "Faire des achats" and shop cards now navigate there.
+
+**Recurring scheduled deliveries (Phase 2).** `POST /jobs` validates recurrence (`recurrenceRule` DAILY|WEEKLY, must be scheduled + wallet-paid). The promoter cron (`scheduled-job-promoter.js`) clones the next occurrence when it promotes a recurring one — pickup shifted +1d/+7d, stops cloned, wallet `holdFunds` + HELD payments row, child chained via `recurrence_parent_id`, duplicate-guarded. Insufficient balance pauses the series (chain-wide `isRecurring=false`, push notification). `POST /jobs/:id/stop-recurrence` stops a series from any job in the chain. Mobile: Repeat selector in `NewDeliveryScreen`; `PaymentSheetScreen` pays recurring jobs from the wallet (shows balance instead of momo picker). **Fix:** `payment_provider` enum gained `WALLET` (migration `20260723_payment_provider_wallet.sql`) — the wallet path always wrote it but the value never existed, so every wallet-funded job 500'd.
+
+**Merchant team members.** `business_staff` table (migration `20260723_business_staff.sql`); `resolveBusinessForUser` (`backend/src/services/business.js`) resolves owned OR staffed business and is used by the operational routes (jobs, listings, scans, food, `/businesses/me` + `/dashboard`, `/auth/me` profile — profile now includes `staffRole`). Wallet/payments/payouts/corporate/settings stay owner-only. `GET/POST /businesses/team`, `DELETE /businesses/team/:staffId` (removal suspends the staff account; creation returns a one-time temp password). Mobile: `SettingsTeamScreen`.
+
+**Merchant catalog.** Mobile `CatalogScreen` (Products tab: CRUD + photo upload + in-stock toggle over the existing `/listings` API; Orders tab: incoming product orders with status advance buttons). More → Catalog opens it.
+
+**Merchant invoices.** `GET /businesses/invoices/:paymentId/pdf` streams a bilingual per-delivery PDF (pdfkit, `backend/src/services/invoice-pdf.js`), owner-only. Mobile `InvoicesScreen` downloads via `expo-file-system` (auth header) + `expo-sharing`.
+
+**Food orders: mobile money.** `POST /food/orders` initiates provider payment when not COD (reference `DLV-FOOD-<orderId>`); webhooks dispatch `DLV-FOOD-*` to an idempotent `confirmFoodOrderPayment` (stamps `paymentConfirmedAt`, order stays PENDING for the restaurant). `GET /food/orders/:id` for polling. The demo-confirm page now routes through the shared webhook dispatcher (also fixes demo job payments, which previously only confirmed deposits). Mobile checkout: cash/momo selector, provider chips, phone field, WebView checkout + polling.
+
+**Mobile version bumped to 1.0.5** — `expo-sharing`/`expo-file-system` are new native deps, so new binaries must not share a runtime version (policy: appVersion) with 1.0.4 installs. A fresh EAS build is required to ship all of this to physical devices (`eas build --profile production --platform all` with the argilette Expo account); OTA updates alone would crash on old binaries where the new native modules are missing.
+
 ## External Dependencies
 
 ArgiDrop integrates with the following third-party services:

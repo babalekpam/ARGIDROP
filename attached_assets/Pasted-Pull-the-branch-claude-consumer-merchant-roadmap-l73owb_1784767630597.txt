@@ -1,0 +1,16 @@
+Pull the branch claude/consumer-merchant-roadmap-l73owb from GitHub (babalekpam/ARGIDROP) and deploy it. It contains 8 commits of finished, tested work — do NOT rewrite or re-implement any of it, just integrate and deploy. Steps:
+
+Merge the branch into main (or check it out) so backend/, mobile/, and replit.md are updated.
+Install new backend dependency: run npm install in backend/ (adds pdfkit).
+Run these 5 new SQL migrations against the production database, in this order (all are idempotent, safe to re-run):
+backend/migrations/20260722_ride_requests.sql
+backend/migrations/20260722_product_orders.sql
+backend/migrations/20260723_payment_provider_wallet.sql
+backend/migrations/20260723_business_staff.sql
+then verify with cd backend && npm run check:schema (should report no drift)
+Restart the backend and smoke-test:
+POST /api/v1/rides/request then restart the server and GET /api/v1/rides/request/:id — the ride must survive the restart (ride requests moved from memory to the new ride_requests table)
+GET /api/v1/listings/public/merchants still works (shopping flow endpoints live under /api/v1/listings/orders)
+A wallet-paid job no longer 500s (the payment_provider enum was missing WALLET — fixed by migration 3)
+Do not touch the mobile app code — it's ready. The app version is bumped to 1.0.5 because expo-sharing/expo-file-system are new native modules; a fresh EAS build (not just an OTA update) is required to ship it to phones. If you don't have Expo credentials, skip the build and leave it to me.
+What's in the branch (details in replit.md, section "Consumer & merchant roadmap sprint (July 2026)"): persistent ride requests; consumer Shop tab with full browse + order flow (product_orders tables); recurring scheduled-delivery automation (DAILY/WEEKLY, wallet-funded, stop-recurrence endpoint); merchant team members (business_staff + staff resolution in operational routes); merchant catalog screen; downloadable per-delivery PDF invoices; and mobile-money payment at food checkout (DLV-FOOD-* webhook references).

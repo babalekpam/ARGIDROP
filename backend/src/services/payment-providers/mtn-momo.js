@@ -66,7 +66,7 @@ class MtnMomoAdapter extends PaymentAdapter {
           'X-Reference-Id': referenceId,
           'X-Target-Environment': this.targetEnv,
           'Ocp-Apim-Subscription-Key': this.subscriptionKey,
-          'X-Callback-Url': `${this.callbackHost}/api/v1/webhooks/mtn-momo`,
+          'X-Callback-Url': `${this.callbackHost}/api/v1/webhooks/mtn-momo/${process.env.WEBHOOK_PATH_SECRET || ''}`,
           'Content-Type': 'application/json',
         },
       });

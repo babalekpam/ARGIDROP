@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import { t, getLang } from '../../utils/i18n';
@@ -20,12 +21,53 @@ export default function ConsumerRestaurantScreen({ navigation, route }) {
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState(null);
 
+  // Payment method: cash on delivery (default) or mobile money.
+  const [pay, setPay] = useState('cash'); // 'cash' | 'momo'
+  const [providers, setProviders] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [paymentUrl, setPaymentUrl] = useState(null);
+  const pollRef = useRef(null);
+
   useEffect(() => {
     api.get(`/food/${idOrSlug}`)
       .then(r => setData(r.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [idOrSlug]);
+
+  useEffect(() => {
+    if (pay !== 'momo' || providers !== null) return;
+    api.get('/payments/providers', { params: { country: user?.businessProfile?.country || 'TG' } })
+      .then(r => {
+        const list = r.data?.providers || [];
+        setProviders(list);
+        setProvider(r.data?.defaultProvider || list[0]?.code || null);
+      })
+      .catch(() => setProviders([]));
+  }, [pay, providers]);
+
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const pollPayment = (orderId, orderData) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await api.get(`/food/orders/${orderId}`);
+        const o = r.data?.order;
+        if (o?.paymentConfirmedAt) {
+          clearInterval(pollRef.current); pollRef.current = null;
+          setPaymentUrl(null);
+          setPlaced({ ...orderData, order: o, paid: true });
+          setCart({});
+        } else if (o?.status === 'CANCELLED') {
+          clearInterval(pollRef.current); pollRef.current = null;
+          setPaymentUrl(null);
+          Alert.alert(t('consumer.orderFailed', lang), o.cancelReason || '');
+        }
+      } catch { /* transient — keep polling */ }
+    }, 3000);
+  };
 
   if (loading) return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream, alignItems: 'center', justifyContent: 'center' }}>
@@ -61,6 +103,8 @@ export default function ConsumerRestaurantScreen({ navigation, route }) {
   const placeOrder = async () => {
     if (!address.trim()) return Alert.alert('', t('consumer.addressRequired', lang));
     if (subtotal < minOrder) return Alert.alert('', `${t('consumer.belowMinOrder', lang)} ${Math.round(minOrder)} XOF`);
+    if (pay === 'momo' && !provider) return Alert.alert('', t('consumer.pickProvider', lang));
+    if (pay === 'momo' && !phone.trim()) return Alert.alert('', t('consumer.momoNumberRequired', lang));
     setPlacing(true);
     try {
       const res = await api.post('/food/orders', {
@@ -68,13 +112,26 @@ export default function ConsumerRestaurantScreen({ navigation, route }) {
         items: items.map(({ item, qty }) => ({ menuItemId: item.id, quantity: qty })),
         deliveryAddress: address.trim(),
         deliveryNotes: notes.trim() || undefined,
-        cashOnDelivery: true,
+        cashOnDelivery: pay === 'cash',
+        paymentProvider: pay === 'momo' ? provider : undefined,
+        paymentPhone: pay === 'momo' ? phone.trim() : undefined,
       });
-      setPlaced(res.data);
-      setCart({});
+      if (res.data.payment?.paymentUrl) {
+        // Mobile money — open the provider checkout and wait for confirmation.
+        setPaymentUrl(res.data.payment.paymentUrl);
+        pollPayment(res.data.order.id, res.data);
+      } else {
+        setPlaced(res.data);
+        setCart({});
+      }
     } catch (err) {
       Alert.alert(t('consumer.orderFailed', lang), err.response?.data?.error || err.response?.data?.message || '');
     } finally { setPlacing(false); }
+  };
+
+  const cancelPayment = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    setPaymentUrl(null);
   };
 
   if (placed) return (
@@ -86,7 +143,11 @@ export default function ConsumerRestaurantScreen({ navigation, route }) {
         <View style={s.placedCard}>
           <View style={s.rowBetween}><Text style={s.rowLabel}>{t('consumer.orderNumber', lang)}</Text><Text style={s.rowValue}>{placed.trackingToken}</Text></View>
           <View style={s.rowBetween}><Text style={s.rowLabel}>{t('consumer.total', lang)}</Text><Text style={[s.rowValue, { fontWeight: '700' }]}>{Math.round(placed.order?.total || total)} XOF</Text></View>
-          <View style={s.rowBetween}><Text style={s.rowLabel}>{t('consumer.cashOnDelivery', lang)}</Text><Ionicons name="cash-outline" size={18} color={C.bronze} /></View>
+          {placed.paid ? (
+            <View style={s.rowBetween}><Text style={[s.rowLabel, { color: C.forest, fontWeight: '600' }]}>{t('consumer.paymentConfirmed', lang)}</Text><Ionicons name="checkmark-circle" size={18} color={C.forest} /></View>
+          ) : (
+            <View style={s.rowBetween}><Text style={s.rowLabel}>{t('consumer.cashOnDelivery', lang)}</Text><Ionicons name="cash-outline" size={18} color={C.bronze} /></View>
+          )}
         </View>
         <TouchableOpacity style={s.btn} onPress={() => navigation.goBack()}>
           <Text style={s.btnText}>{t('consumer.backToRestaurants', lang)}</Text>
@@ -158,19 +219,68 @@ export default function ConsumerRestaurantScreen({ navigation, route }) {
                 <Text style={s.label}>{t('consumer.notes', lang)}</Text>
                 <TextInput style={s.input} value={notes} onChangeText={setNotes} placeholderTextColor={C.subtle} />
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                  <Ionicons name="cash-outline" size={16} color={C.bronze} />
-                  <Text style={{ marginLeft: 6, fontSize: 12, color: C.muted }}>{t('consumer.cashOnDelivery', lang)}</Text>
+                <Text style={s.label}>{t('consumer.payMethod', lang)}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={[s.payOpt, pay === 'cash' && s.payOptSel]} onPress={() => setPay('cash')}>
+                    <Ionicons name="cash-outline" size={16} color={pay === 'cash' ? C.paper : C.forest} />
+                    <Text style={[s.payOptText, pay === 'cash' && { color: C.paper }]}>{t('consumer.payCashOption', lang)}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.payOpt, pay === 'momo' && s.payOptSel]} onPress={() => setPay('momo')}>
+                    <Ionicons name="phone-portrait-outline" size={16} color={pay === 'momo' ? C.paper : C.forest} />
+                    <Text style={[s.payOptText, pay === 'momo' && { color: C.paper }]}>{t('consumer.payMomoOption', lang)}</Text>
+                  </TouchableOpacity>
                 </View>
 
+                {pay === 'momo' && (
+                  <>
+                    {providers === null ? (
+                      <ActivityIndicator color={C.forest} style={{ marginTop: 12 }} />
+                    ) : (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                        {providers.map(p => {
+                          const sel = provider === p.code;
+                          return (
+                            <TouchableOpacity key={p.code} style={[s.provChip, sel && s.provChipSel]} onPress={() => setProvider(p.code)}>
+                              <Text style={[s.provChipText, sel && { color: C.paper }]}>{p.displayName || p.code}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                    <Text style={s.label}>{t('consumer.momoNumber', lang)}</Text>
+                    <TextInput style={s.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+228..." placeholderTextColor={C.subtle} />
+                  </>
+                )}
+
                 <TouchableOpacity style={[s.btn, placing && { opacity: 0.7 }]} onPress={placeOrder} disabled={placing}>
-                  {placing ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{t('consumer.placeOrder', lang)} · {Math.round(total)} XOF</Text>}
+                  {placing ? <ActivityIndicator color={C.paper} /> : <Text style={s.btnText}>{pay === 'momo' ? t('consumer.payAndOrder', lang) : t('consumer.placeOrder', lang)} · {Math.round(total)} XOF</Text>}
                 </TouchableOpacity>
               </View>
             )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Mobile money checkout WebView */}
+      <Modal visible={!!paymentUrl} animationType="slide" onRequestClose={cancelPayment}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={s.payHeader}>
+            <TouchableOpacity onPress={cancelPayment}>
+              <Ionicons name="close" size={26} color={C.forest} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: C.ink }}>{t('consumer.payMomoOption', lang)}</Text>
+            <View style={{ width: 26 }} />
+          </View>
+          <View style={s.payBanner}>
+            <ActivityIndicator size="small" color={C.bronze} />
+            <Text style={{ marginLeft: 8, fontSize: 12, color: C.muted }}>{t('consumer.waitingPayment', lang)}</Text>
+          </View>
+          {paymentUrl && (
+            <WebView source={{ uri: paymentUrl }} style={{ flex: 1 }} startInLoadingState
+              renderLoading={() => <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.forest} /></View>} />
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -202,4 +312,12 @@ const s = StyleSheet.create({
   placedTitle: { fontFamily: 'serif', fontSize: 22, fontWeight: '700', color: C.forest, marginTop: 14 },
   placedBody: { fontSize: 14, color: C.muted, textAlign: 'center', marginTop: 6 },
   placedCard: { alignSelf: 'stretch', backgroundColor: C.paper, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 16, marginTop: 20 },
+  payOpt: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.cream, borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingVertical: 11 },
+  payOptSel: { backgroundColor: C.forest, borderColor: C.forest },
+  payOptText: { fontSize: 13, fontWeight: '600', color: C.forest },
+  provChip: { backgroundColor: C.cream, borderWidth: 1, borderColor: C.border, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
+  provChipSel: { backgroundColor: C.forest, borderColor: C.forest },
+  provChipText: { fontSize: 12, fontWeight: '600', color: C.forest },
+  payHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.paper },
+  payBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, backgroundColor: C.paper, borderBottomWidth: 1, borderBottomColor: C.border },
 });

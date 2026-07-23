@@ -38,10 +38,14 @@ import SettingsPersonalScreen from '../screens/merchant/SettingsPersonalScreen';
 import SettingsPasswordScreen from '../screens/merchant/SettingsPasswordScreen';
 import SettingsBusinessScreen from '../screens/merchant/SettingsBusinessScreen';
 import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
+import SettingsTeamScreen from '../screens/merchant/SettingsTeamScreen';
+import CatalogScreen from '../screens/merchant/CatalogScreen';
+import InvoicesScreen from '../screens/merchant/InvoicesScreen';
 
 // Consumer
 import ConsumerTabs from './ConsumerTabs';
 import ConsumerRestaurantScreen from '../screens/consumer/RestaurantScreen';
+import ConsumerShopMerchantScreen from '../screens/consumer/ShopMerchantScreen';
 
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
@@ -118,6 +122,7 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="ConsumerTabs" component={ConsumerTabs} />
           <Stack.Screen name="FoodRestaurant" component={ConsumerRestaurantScreen} />
+          <Stack.Screen name="ShopMerchant" component={ConsumerShopMerchantScreen} />
           <Stack.Screen name="MapPicker" component={MapPickerScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
           <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />
@@ -146,6 +151,9 @@ export default function RootNavigator() {
           <Stack.Screen name="SettingsPassword" component={SettingsPasswordScreen} />
           <Stack.Screen name="SettingsBusiness" component={SettingsBusinessScreen} />
           <Stack.Screen name="SettingsRoadmap" component={SettingsRoadmapScreen} />
+          <Stack.Screen name="SettingsTeam" component={SettingsTeamScreen} />
+          <Stack.Screen name="Catalog" component={CatalogScreen} />
+          <Stack.Screen name="Invoices" component={InvoicesScreen} />
           <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </>
       ) : (

@@ -4,9 +4,9 @@
 // to confirmDeposit() or confirmJobPayment().
 
 const express = require('express');
-const { eq } = require('drizzle-orm');
+const { eq, isNull, and } = require('drizzle-orm');
 const { getDB } = require('../config/database');
-const { jobs, payments } = require('../schema');
+const { jobs, payments, foodOrders } = require('../schema');
 const { confirmDeposit } = require('../services/wallet');
 const { getAdapter } = require('../services/payment-providers');
 
@@ -50,6 +50,9 @@ async function dispatchByReference(reference, provider, event) {
     // Trim a trailing -<timestamp> if our initiator added one.
     const jobId = rest.replace(/-\d{10,}$/, '');
     await confirmJobPayment(jobId, provider, event);
+  } else if (reference.startsWith('DLV-FOOD-')) {
+    const orderId = reference.slice('DLV-FOOD-'.length).replace(/-\d{10,}$/, '');
+    await confirmFoodOrderPayment(orderId, provider, event);
   }
 }
 
@@ -160,4 +163,22 @@ async function confirmJobPayment(jobId, provider, event) {
   }
 }
 
+// Mark a consumer food order as paid. Idempotent: only the first successful
+// callback stamps paymentConfirmedAt. The order stays PENDING — the
+// restaurant still confirms/prepares it; payment state is tracked separately.
+async function confirmFoodOrderPayment(orderId, provider, event) {
+  const db = getDB();
+  const now = new Date();
+  const txId = event?.data?.id?.toString() || event?.transaction?.id || event?.referenceId || null;
+  await db.update(foodOrders).set({
+    paymentConfirmedAt: now,
+    paymentProvider: provider,
+    paymentRef: txId,
+    updatedAt: now,
+  }).where(and(eq(foodOrders.id, orderId), isNull(foodOrders.paymentConfirmedAt)));
+}
+
 module.exports = router;
+// dispatchByReference is shared with the demo-confirm page in routes/payments.js
+// so demo payments confirm through the exact same path as real webhooks.
+module.exports.dispatchByReference = dispatchByReference;

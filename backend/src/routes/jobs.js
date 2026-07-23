@@ -7,6 +7,7 @@ const QRCode = require('qrcode');
 const { getDB } = require('../config/database');
 const { jobs, businesses, drivers, users, jobBids, ratings, disputes, jobStops, payments, zones, messages } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
 const { validatePromo, recordRedemption } = require('../services/promo');
 const { findNearbyDrivers, broadcastJobToDrivers, haversineKm } = require('../services/geo');
 const { getAdapter, defaultProviderForCountry, defaultCurrencyForCountry } = require('../services/payment-adapter');
@@ -29,7 +30,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 *
 router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
   try {
     const db = getDB();
-    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const business = await resolveBusinessForUser(db, req.user.id);
     if (!business) return res.status(404).json({ success: false, message: 'Business profile not found' });
 
     const {
@@ -43,10 +44,11 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       currency: requestCurrency,
       promoCode,              // optional marketing code → discount + optional driver bonus
       stops,
-      // ─── Scheduled-delivery fields (Phase 1) ───
+      // ─── Scheduled-delivery fields ───
       // scheduledPickupAt: ISO timestamp ≥1h in the future and ≤90 days out
       // scheduledWindowEnd: optional ISO timestamp marking end of pickup window
-      // isRecurring + recurrenceRule: reserved for V2 (parent record only here)
+      // isRecurring + recurrenceRule ('DAILY' | 'WEEKLY'): the promoter cron
+      // clones the next occurrence each time one is promoted (wallet only)
       scheduledPickupAt: scheduledPickupAtRaw,
       scheduledWindowEnd: scheduledWindowEndRaw,
       isRecurring: isRecurringRaw,
@@ -83,6 +85,23 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
           return res.status(400).json({ success: false, code: 'INVALID_WINDOW', message: 'scheduledWindowEnd must be after scheduledPickupAt' });
         }
         scheduledWindowEnd = endAt;
+      }
+    }
+
+    // ─── Validate recurrence ───
+    // Each occurrence is auto-funded from the wallet when the promoter cron
+    // spawns it, so recurring jobs must be scheduled AND paid by wallet.
+    const isRecurring = !!isRecurringRaw;
+    const recurrenceRule = isRecurring ? String(recurrenceRuleRaw || '').toUpperCase() : null;
+    if (isRecurring) {
+      if (!isScheduled) {
+        return res.status(400).json({ success: false, code: 'RECURRING_NEEDS_SCHEDULE', message: 'Recurring deliveries must have a scheduledPickupAt' });
+      }
+      if (!['DAILY', 'WEEKLY'].includes(recurrenceRule)) {
+        return res.status(400).json({ success: false, code: 'INVALID_RECURRENCE', message: 'recurrenceRule must be DAILY or WEEKLY' });
+      }
+      if (paymentMethod !== 'wallet') {
+        return res.status(400).json({ success: false, code: 'RECURRING_NEEDS_WALLET', message: 'Recurring deliveries are paid from your wallet — each repeat is funded automatically' });
       }
     }
 
@@ -144,8 +163,8 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       paymentCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min to pay
       scheduledPickupAt,
       scheduledWindowEnd,
-      isRecurring: !!isRecurringRaw,
-      recurrenceRule: recurrenceRuleRaw || null,
+      isRecurring,
+      recurrenceRule,
       zoneId
     }).returning();
 
@@ -297,7 +316,7 @@ router.get('/', authenticate, async (req, res, next) => {
     const conditions = [];
 
     if (req.user.role === 'BUSINESS') {
-      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      const business = await resolveBusinessForUser(db, req.user.id);
       if (!business) return res.json({ success: true, jobs: [], total: 0 });
       conditions.push(eq(jobs.businessId, business.id));
     } else if (req.user.role === 'DRIVER') {
@@ -426,6 +445,36 @@ router.post('/:id/release-preclaim', authenticate, requireRole('DRIVER'), async 
   } catch (err) { next(err); }
 });
 
+/**
+ * POST /jobs/:id/stop-recurrence
+ * Business owner stops a recurring series: no further occurrences will be
+ * generated. The already-scheduled occurrence still runs (cancel it
+ * separately via POST /jobs/:id/cancel if needed).
+ */
+router.post('/:id/stop-recurrence', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const business = await resolveBusinessForUser(db, req.user.id);
+    if (!business) return res.status(404).json({ success: false, message: 'Business profile not found' });
+
+    const [job] = await db.select().from(jobs)
+      .where(and(eq(jobs.id, req.params.id), eq(jobs.businessId, business.id))).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job.isRecurring) return res.status(409).json({ success: false, message: 'This delivery is not recurring' });
+
+    // Turn off recurrence across the whole chain (root + every child) so no
+    // occurrence still carrying the flag spawns a successor at promotion time.
+    const rootId = job.recurrenceParentId || job.id;
+    await db.update(jobs).set({ isRecurring: false, updatedAt: new Date() })
+      .where(and(
+        eq(jobs.businessId, business.id),
+        or(eq(jobs.id, rootId), eq(jobs.recurrenceParentId, rootId))
+      ));
+
+    res.json({ success: true, message: 'Recurrence stopped — no further deliveries will be created' });
+  } catch (err) { next(err); }
+});
+
 // GET /jobs/available — drivers only see POSTED (paid-for) jobs
 router.get('/available', authenticate, requireRole('DRIVER'), async (req, res, next) => {
   try {
@@ -491,7 +540,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
     // Authorization: caller must be the owning business, the assigned driver, or an admin
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || result.business?.id !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -532,7 +581,7 @@ router.get('/:id/proof', authenticate, async (req, res, next) => {
 
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -626,7 +675,7 @@ router.post('/:id/cancel', authenticate, async (req, res, next) => {
     // Authorization: only the owning business, the assigned driver, or an admin may cancel
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -750,7 +799,7 @@ router.post('/:id/rate', authenticate, async (req, res, next) => {
     // Verify caller participated in this job and derive who is being rated
     let ratedUserId;
     if (req.user.role === 'BUSINESS') {
-      const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+      const business = await resolveBusinessForUser(db, req.user.id);
       if (!business || job.businessId !== business.id) {
         return res.status(403).json({ success: false, message: 'You did not place this job' });
       }
@@ -805,7 +854,7 @@ router.get('/:id/messages', authenticate, async (req, res, next) => {
 
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [biz] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const biz = await resolveBusinessForUser(db, req.user.id);
         if (!biz || job.businessId !== biz.id) return res.status(403).json({ success: false, message: 'Access denied' });
       } else if (req.user.role === 'DRIVER') {
         const [driver] = await db.select().from(drivers).where(eq(drivers.userId, req.user.id)).limit(1);
@@ -833,7 +882,7 @@ router.post('/:id/dispute', authenticate, async (req, res, next) => {
     // Authorization: only the owning business or the assigned driver may raise a dispute
     if (req.user.role !== 'ADMIN') {
       if (req.user.role === 'BUSINESS') {
-        const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+        const business = await resolveBusinessForUser(db, req.user.id);
         if (!business || job.businessId !== business.id) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }

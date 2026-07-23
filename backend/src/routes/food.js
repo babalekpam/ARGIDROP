@@ -7,6 +7,8 @@ const express = require('express');
 const { eq, and, desc, ilike } = require('drizzle-orm');
 const { getDB } = require('../config/database');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveBusinessForUser } = require('../services/business');
+const { getAdapter } = require('../services/payment-adapter');
 const {
   restaurants, restaurantMenuItems, foodOrders, foodOrderItems,
   businesses, users, drivers, zones,
@@ -95,11 +97,24 @@ router.post('/orders', authenticate, async (req, res) => {
   try {
     const {
       restaurantId, items, deliveryAddress, deliveryLat, deliveryLng,
-      deliveryNotes, paymentProvider, cashOnDelivery,
+      deliveryNotes, paymentProvider, paymentPhone, cashOnDelivery,
     } = req.body;
 
     if (!restaurantId || !items?.length || !deliveryAddress) {
       return res.status(400).json({ error: 'restaurantId, items and deliveryAddress are required' });
+    }
+
+    // Cash on delivery or mobile money — one of the two must be chosen.
+    if (!cashOnDelivery && !paymentProvider) {
+      return res.status(400).json({ error: 'Choose cash on delivery or a mobile money provider' });
+    }
+    let adapter = null;
+    if (!cashOnDelivery) {
+      try {
+        adapter = getAdapter(paymentProvider);
+      } catch (e) {
+        return res.status(400).json({ error: `Unknown payment provider ${paymentProvider}` });
+      }
     }
 
     const [restaurant] = await getDB()
@@ -157,7 +172,7 @@ router.post('/orders', authenticate, async (req, res) => {
       serviceFee: serviceFee.toFixed(2),
       total: total.toFixed(2),
       currency: 'XOF',
-      paymentProvider: paymentProvider || null,
+      paymentProvider: cashOnDelivery ? null : paymentProvider,
       cashOnDelivery: !!cashOnDelivery,
     }).returning();
 
@@ -173,7 +188,32 @@ router.post('/orders', authenticate, async (req, res) => {
       }))
     );
 
-    res.status(201).json({ order, trackingToken });
+    // ── Mobile money: initiate the payment now, confirm via webhook ──
+    // (reference DLV-FOOD-<orderId>, dispatched in routes/webhooks.js).
+    let payment = null;
+    if (!cashOnDelivery) {
+      const reference = `DLV-FOOD-${order.id}`;
+      try {
+        const paymentResult = await adapter.initiatePayment({
+          amount: total,
+          currency: 'XOF',
+          customerPhone: paymentPhone || req.user.phone,
+          customerEmail: req.user.email,
+          reference,
+          description: `ArgiDrop Food order ${trackingToken}`,
+          callbackUrl: `${process.env.BACKEND_URL}/api/v1/webhooks/${paymentProvider.toLowerCase()}`,
+          redirectUrl: `${process.env.WEB_URL || ''}/food/orders/${order.id}`,
+        });
+        payment = { provider: paymentProvider, reference, paymentUrl: paymentResult.paymentUrl, amount: total, currency: 'XOF' };
+      } catch (paymentErr) {
+        await getDB().update(foodOrders)
+          .set({ status: 'CANCELLED', cancelledAt: new Date(), cancelReason: 'Payment initiation failed' })
+          .where(eq(foodOrders.id, order.id));
+        return res.status(502).json({ error: paymentErr.message });
+      }
+    }
+
+    res.status(201).json({ order, trackingToken, payment });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to place order' });
@@ -207,6 +247,22 @@ router.get('/orders/me', authenticate, async (req, res) => {
   }
 });
 
+// ─── AUTHENTICATED: Get one of my orders (used to poll payment status) ────
+router.get('/orders/:id', authenticate, async (req, res) => {
+  try {
+    const [order] = await getDB()
+      .select()
+      .from(foodOrders)
+      .where(and(eq(foodOrders.id, req.params.id), eq(foodOrders.customerId, req.user.id)))
+      .limit(1);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json({ order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
 // ─── RESTAURANT ADMIN: Update menu item ────────────────────────────────────
 router.post('/:restaurantId/menu', authenticate, async (req, res) => {
   try {
@@ -221,13 +277,9 @@ router.post('/:restaurantId/menu', authenticate, async (req, res) => {
 
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
-    const [biz] = await getDB()
-      .select({ userId: businesses.userId })
-      .from(businesses)
-      .where(eq(businesses.id, restaurant.businessId))
-      .limit(1);
+    const userBiz = await resolveBusinessForUser(getDB(), req.user.id);
 
-    if (!biz || (biz.userId !== req.user.id && req.user.role !== 'ADMIN')) {
+    if ((userBiz?.id !== restaurant.businessId) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -271,11 +323,7 @@ router.post('/:restaurantId/menu', authenticate, async (req, res) => {
 router.post('/restaurants/apply', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, req.user.id))
-      .limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
 
     if (!biz) return res.status(404).json({ error: 'Business profile not found' });
     if (biz.verificationStatus !== 'APPROVED') {
@@ -342,7 +390,7 @@ router.post('/restaurants/apply', authenticate, requireRole('BUSINESS'), async (
 router.get('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
     if (!biz) return res.status(404).json({ error: 'Business not found' });
 
     const [restaurant] = await d.select().from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);
@@ -363,7 +411,7 @@ router.get('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (re
 router.patch('/restaurants/mine', authenticate, requireRole('BUSINESS'), async (req, res) => {
   try {
     const d = getDB();
-    const [biz] = await d.select({ id: businesses.id }).from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    const biz = await resolveBusinessForUser(d, req.user.id);
     if (!biz) return res.status(404).json({ error: 'Business not found' });
 
     const [existing] = await d.select({ id: restaurants.id, status: restaurants.status }).from(restaurants).where(eq(restaurants.businessId, biz.id)).limit(1);

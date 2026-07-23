@@ -1,3 +1,3 @@
-- [EAS build gotchas from Replit](eas-build-gotchas.md) — package-lock contains Replit firewall URLs that break EAS `npm ci`; sed them to registry.npmjs.org; detached launch recipe + GraphQL polling; SDK 57 web white-screen debugging.
+- [EAS build gotchas from Replit](eas-build-gotchas.md) — lockfile firewall URLs break EAS; detached launch recipe + GraphQL polling.
 - [External branch merge](external-branch-merge.md) — raw git merge is blocked; union branches at the file level via read-only `git show` + hand-applied diffs.
 - [ArgiDrop production VPS deploy](vps-production-deploy.md) — live site is a shared Plesk VPS via VPS_SSH_*, not the Replit deploy; backend pm2 'argidrop-api' on PORT 3040, web served from /opt/argidrop/web/dist.
