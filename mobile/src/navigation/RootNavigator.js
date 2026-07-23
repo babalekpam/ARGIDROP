@@ -42,6 +42,7 @@ import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
 // Consumer
 import ConsumerTabs from './ConsumerTabs';
 import ConsumerRestaurantScreen from '../screens/consumer/RestaurantScreen';
+import ConsumerShopMerchantScreen from '../screens/consumer/ShopMerchantScreen';
 
 // Shared
 import ChatScreen from '../screens/shared/ChatScreen';
@@ -118,6 +119,7 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="ConsumerTabs" component={ConsumerTabs} />
           <Stack.Screen name="FoodRestaurant" component={ConsumerRestaurantScreen} />
+          <Stack.Screen name="ShopMerchant" component={ConsumerShopMerchantScreen} />
           <Stack.Screen name="MapPicker" component={MapPickerScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
           <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />

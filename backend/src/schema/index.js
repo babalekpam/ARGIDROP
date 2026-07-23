@@ -58,6 +58,13 @@ const foodOrderStatusEnum = pgEnum('food_order_status', [
 ]);
 const restaurantStatusEnum = pgEnum('restaurant_status', ['PENDING', 'ACTIVE', 'SUSPENDED', 'CLOSED']);
 
+// ─── PRODUCT ORDER (shop/marketplace) ENUMS ───
+// Mirrors food_order_status so shared order UIs can treat both verticals alike.
+const productOrderStatusEnum = pgEnum('product_order_status', [
+  'PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP',
+  'PICKED_UP', 'DELIVERED', 'CANCELLED', 'REFUNDED',
+]);
+
 // ─── RIDE-HAILING ENUMS ───
 const rideStatusEnum = pgEnum('ride_status', ['SEARCHING', 'MATCHED', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
 // Ride vehicle types are consumer-facing (MOTO/ZEMIDJAN map onto drivers.vehicle_type MOTORCYCLE)
@@ -927,6 +934,55 @@ const corporateInvoices = pgTable('corporate_invoices', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ─── PRODUCT ORDERS (consumer shopping — merchant_listings marketplace) ───
+const productOrders = pgTable('product_orders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').references(() => businesses.id).notNull(), // the merchant
+  customerId: uuid('customer_id').references(() => users.id).notNull(),
+  driverId: uuid('driver_id').references(() => drivers.id),
+  trackingToken: text('tracking_token').unique().notNull(),
+  status: productOrderStatusEnum('status').default('PENDING'),
+  // Delivery address
+  deliveryAddress: text('delivery_address').notNull(),
+  deliveryLat: decimal('delivery_lat', { precision: 10, scale: 7 }),
+  deliveryLng: decimal('delivery_lng', { precision: 10, scale: 7 }),
+  deliveryNotes: text('delivery_notes'),
+  // Financials
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  deliveryFee: decimal('delivery_fee', { precision: 8, scale: 2 }).notNull(),
+  serviceFee: decimal('service_fee', { precision: 8, scale: 2 }).default('0.00'),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0.00'),
+  total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('XOF'),
+  // Payment
+  paymentProvider: paymentProviderEnum('payment_provider'),
+  paymentRef: text('payment_ref'),
+  paymentConfirmedAt: timestamp('payment_confirmed_at'),
+  cashOnDelivery: boolean('cash_on_delivery').default(false),
+  // Timing
+  confirmedAt: timestamp('confirmed_at'),
+  readyAt: timestamp('ready_at'),
+  pickedUpAt: timestamp('picked_up_at'),
+  deliveredAt: timestamp('delivered_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  zoneId: uuid('zone_id').references(() => zones.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+const productOrderItems = pgTable('product_order_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').references(() => productOrders.id, { onDelete: 'cascade' }).notNull(),
+  listingId: uuid('listing_id').references(() => merchantListings.id).notNull(),
+  // Name snapshot so history/invoices stay readable if the listing is edited or archived
+  name: text('name').notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ─── RIDE REQUESTS (ride-hailing vertical — motos, zémidjans, cars) ───
 const rideRequests = pgTable('ride_requests', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -965,7 +1021,7 @@ module.exports = {
   referralStatusEnum, promoStatusEnum, promoDiscountTypeEnum, promoRoleScopeEnum,
   driverLevelEnum, foodOrderStatusEnum, restaurantStatusEnum,
   corporateAccountStatusEnum, corporateBillingCycleEnum,
-  rideStatusEnum, rideVehicleTypeEnum,
+  rideStatusEnum, rideVehicleTypeEnum, productOrderStatusEnum,
   // Core tables
   users, otpCodes, businesses, businessWallets, walletTransactions,
   drivers, driverDocuments, businessDocuments, zones,
@@ -984,4 +1040,6 @@ module.exports = {
   corporateAccounts, corporateInvoices,
   // Ride-hailing vertical
   rideRequests,
+  // Consumer shopping (marketplace orders)
+  productOrders, productOrderItems,
 };

@@ -469,6 +469,7 @@ const strings = {
 
   'tab.consumer.home': { fr: 'Accueil', en: 'Home' },
   'tab.consumer.food': { fr: 'Repas', en: 'Food' },
+  'tab.consumer.shop': { fr: 'Achats', en: 'Shop' },
   'tab.consumer.rides': { fr: 'Courses', en: 'Rides' },
   'tab.consumer.more': { fr: 'Plus', en: 'More' },
 
@@ -512,6 +513,13 @@ const strings = {
   'consumer.belowMinOrder': { fr: 'Le minimum de commande est de', en: 'Minimum order is' },
   'consumer.emptyMenu': { fr: 'Menu indisponible pour le moment', en: 'Menu unavailable right now' },
   'consumer.backToRestaurants': { fr: 'Retour aux restaurants', en: 'Back to restaurants' },
+
+  'consumer.shopsTitle': { fr: 'Faire des achats', en: 'Shop' },
+  'consumer.shopsSubtitle': { fr: 'Boutiques et commerçants livrés chez vous', en: 'Shops and merchants delivered to you' },
+  'consumer.products': { fr: 'Produits', en: 'Products' },
+  'consumer.emptyShop': { fr: 'Aucun produit disponible pour le moment', en: 'No products available right now' },
+  'consumer.backToShops': { fr: 'Retour aux boutiques', en: 'Back to shops' },
+  'consumer.outOfStock': { fr: 'Épuisé', en: 'Out of stock' },
 
   'consumer.rideTitle': { fr: 'Réserver une course', en: 'Book a ride' },
   'consumer.rideSubtitle': { fr: 'Un chauffeur vient vous chercher', en: 'A driver picks you up' },

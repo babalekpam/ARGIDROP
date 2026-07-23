@@ -24,7 +24,7 @@ export default function ConsumerHomeScreen({ navigation }) {
         api.get('/listings/public/merchants?limit=6').catch(() => ({ data: { merchants: [] } })),
       ]);
       setRestaurants(rRes.data.restaurants || rRes.data || []);
-      setShops(sRes.data.merchants || sRes.data || []);
+      setShops((sRes.data.merchants || []).filter(m => m.profile?.slug));
     } catch (e) {
       setError(true);
     }
@@ -55,7 +55,7 @@ export default function ConsumerHomeScreen({ navigation }) {
         <Action icon="restaurant-outline" title={t('consumer.actionFood', lang)} desc={t('consumer.actionFoodDesc', lang)}
           onPress={() => navigation.navigate('Food')} />
         <Action icon="bag-handle-outline" title={t('consumer.actionShops', lang)} desc={t('consumer.actionShopsDesc', lang)}
-          onPress={() => navigation.navigate('Food')} />
+          onPress={() => navigation.navigate('Shop')} />
         <Action icon="car-outline" title={t('consumer.actionRide', lang)} desc={t('consumer.actionRideDesc', lang)}
           onPress={() => navigation.navigate('Rides')} />
 
@@ -86,17 +86,21 @@ export default function ConsumerHomeScreen({ navigation }) {
 
         <View style={s.sectionHead}>
           <Text style={s.sectionTitle}>{t('consumer.shops', lang)}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Shop')}>
+            <Text style={s.seeAll}>{t('consumer.seeAll', lang)}</Text>
+          </TouchableOpacity>
         </View>
         {shops.length === 0 ? (
           <Text style={s.empty}>{t('consumer.noShops', lang)}</Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20 }}>
             {shops.map(m => (
-              <View key={m.id} style={s.card}>
-                {m.logoUrl ? <Image source={{ uri: m.logoUrl }} style={s.cardImg} /> : <View style={[s.cardImg, s.cardImgPh]}><Ionicons name="storefront-outline" size={28} color={C.subtle} /></View>}
-                <Text style={s.cardName} numberOfLines={1}>{m.companyName || m.name}</Text>
-                <Text style={s.cardMeta} numberOfLines={1}>{m.city || ''}</Text>
-              </View>
+              <TouchableOpacity key={m.profile.id} style={s.card} activeOpacity={0.85}
+                onPress={() => navigation.navigate('ShopMerchant', { slug: m.profile.slug })}>
+                {m.profile.logoUrl ? <Image source={{ uri: m.profile.logoUrl }} style={s.cardImg} /> : <View style={[s.cardImg, s.cardImgPh]}><Ionicons name="storefront-outline" size={28} color={C.subtle} /></View>}
+                <Text style={s.cardName} numberOfLines={1}>{m.business?.companyName || m.profile.slug}</Text>
+                <Text style={s.cardMeta} numberOfLines={1}>{m.business?.city || ''}</Text>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         )}

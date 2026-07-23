@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/consumer/HomeScreen';
 import FoodScreen from '../screens/consumer/FoodScreen';
+import ShopsScreen from '../screens/consumer/ShopsScreen';
 import RidesScreen from '../screens/consumer/RidesScreen';
 import MoreScreen from '../screens/consumer/MoreScreen';
 import { useLang } from '../context/LanguageContext';
@@ -22,13 +23,14 @@ export default function ConsumerTabs() {
       tabBarInactiveTintColor: C.muted,
       tabBarLabelStyle: { fontSize: 11 },
       tabBarIcon: ({ focused, color }) => {
-        const icons = { Home: 'home', Food: 'restaurant', Rides: 'car', More: 'menu' };
+        const icons = { Home: 'home', Food: 'restaurant', Shop: 'bag-handle', Rides: 'car', More: 'menu' };
         const name = icons[route.name] || 'home';
         return <Ionicons name={focused ? name : `${name}-outline`} size={22} color={color} />;
       }
     })}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('tab.consumer.home', lang) }} />
       <Tab.Screen name="Food" component={FoodScreen} options={{ tabBarLabel: t('tab.consumer.food', lang) }} />
+      <Tab.Screen name="Shop" component={ShopsScreen} options={{ tabBarLabel: t('tab.consumer.shop', lang) }} />
       <Tab.Screen name="Rides" component={RidesScreen} options={{ tabBarLabel: t('tab.consumer.rides', lang) }} />
       <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: t('tab.consumer.more', lang) }} />
     </Tab.Navigator>
