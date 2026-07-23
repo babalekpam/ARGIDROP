@@ -39,6 +39,7 @@ import SettingsPasswordScreen from '../screens/merchant/SettingsPasswordScreen';
 import SettingsBusinessScreen from '../screens/merchant/SettingsBusinessScreen';
 import SettingsRoadmapScreen from '../screens/merchant/SettingsRoadmapScreen';
 import SettingsTeamScreen from '../screens/merchant/SettingsTeamScreen';
+import CatalogScreen from '../screens/merchant/CatalogScreen';
 
 // Consumer
 import ConsumerTabs from './ConsumerTabs';
@@ -150,6 +151,7 @@ export default function RootNavigator() {
           <Stack.Screen name="SettingsBusiness" component={SettingsBusinessScreen} />
           <Stack.Screen name="SettingsRoadmap" component={SettingsRoadmapScreen} />
           <Stack.Screen name="SettingsTeam" component={SettingsTeamScreen} />
+          <Stack.Screen name="Catalog" component={CatalogScreen} />
           <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </>
       ) : (

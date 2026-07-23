@@ -49,7 +49,7 @@ export default function MerchantMoreScreen({ navigation }) {
         <Row icon="people-outline" label={t('more.team', lang)} hint={t('more.teamHint', lang)}
              onPress={() => navigation.navigate('SettingsTeam')} />
         <Row icon="grid-outline" label={t('more.catalog', lang)} hint={t('more.catalogHint', lang)}
-             onPress={() => navigation.navigate('SettingsRoadmap', { feature: 'catalog' })} />
+             onPress={() => navigation.navigate('Catalog')} />
         <Row icon="document-text-outline" label={t('more.invoices', lang)} hint={t('more.invoicesHint', lang)}
              onPress={() => navigation.navigate('SettingsRoadmap', { feature: 'invoices' })} />
       </View>
