@@ -522,6 +522,14 @@ const strings = {
   'consumer.emptyMenu': { fr: 'Menu indisponible pour le moment', en: 'Menu unavailable right now' },
   'consumer.backToRestaurants': { fr: 'Retour aux restaurants', en: 'Back to restaurants' },
 
+  'invoices.title': { fr: 'Factures', en: 'Invoices' },
+  'invoices.subtitle': { fr: 'Une facture par livraison payée. Touchez pour télécharger le PDF.', en: 'One invoice per paid delivery. Tap to download the PDF.' },
+  'invoices.empty': { fr: 'Aucune facture pour le moment. Elles apparaissent après votre première livraison payée.', en: 'No invoices yet. They appear after your first paid delivery.' },
+  'invoices.paid': { fr: 'Payée', en: 'Paid' },
+  'invoices.held': { fr: 'Fonds bloqués', en: 'Funds held' },
+  'invoices.saved': { fr: 'Facture téléchargée', en: 'Invoice downloaded' },
+  'invoices.downloadFailed': { fr: 'Téléchargement impossible', en: 'Download failed' },
+
   'catalog.title': { fr: 'Catalogue', en: 'Catalog' },
   'catalog.products': { fr: 'Produits', en: 'Products' },
   'catalog.orders': { fr: 'Commandes', en: 'Orders' },

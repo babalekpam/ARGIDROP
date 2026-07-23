@@ -51,7 +51,7 @@ export default function MerchantMoreScreen({ navigation }) {
         <Row icon="grid-outline" label={t('more.catalog', lang)} hint={t('more.catalogHint', lang)}
              onPress={() => navigation.navigate('Catalog')} />
         <Row icon="document-text-outline" label={t('more.invoices', lang)} hint={t('more.invoicesHint', lang)}
-             onPress={() => navigation.navigate('SettingsRoadmap', { feature: 'invoices' })} />
+             onPress={() => navigation.navigate('Invoices')} />
       </View>
 
       <Text style={s.section}>{t('more.section.grow', lang)}</Text>

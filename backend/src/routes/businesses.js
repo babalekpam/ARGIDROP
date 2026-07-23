@@ -7,6 +7,7 @@ const { getDB } = require('../config/database');
 const { businesses, users, jobs, payments, businessDocuments, businessStaff } = require('../schema');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { resolveBusinessForUser } = require('../services/business');
+const { streamInvoicePDF } = require('../services/invoice-pdf');
 const { uploadFile } = require('../services/storage');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -179,6 +180,26 @@ router.get('/invoices', authenticate, requireRole('BUSINESS'), async (req, res, 
       .limit(100);
 
     res.json({ success: true, invoices: myPayments });
+  } catch (err) { next(err); }
+});
+
+// GET /invoices/:paymentId/pdf — downloadable per-delivery invoice (owner-only,
+// like the invoice list: payments are financial data).
+router.get('/invoices/:paymentId/pdf', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    if (!business) return res.status(404).json({ success: false, message: 'Business not found' });
+
+    const [row] = await db.select({ payment: payments, job: jobs })
+      .from(payments)
+      .leftJoin(jobs, eq(payments.jobId, jobs.id))
+      .where(sql`${payments.id} = ${req.params.paymentId} AND ${payments.businessId} = ${business.id}`)
+      .limit(1);
+    if (!row) return res.status(404).json({ success: false, message: 'Invoice not found' });
+
+    const invoiceNumber = `INV-${(row.job?.trackingToken || row.payment.id.substring(0, 8)).toUpperCase()}`;
+    streamInvoicePDF(res, { invoiceNumber, business, job: row.job, payment: row.payment });
   } catch (err) { next(err); }
 });
 
