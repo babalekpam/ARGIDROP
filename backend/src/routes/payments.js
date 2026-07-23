@@ -9,7 +9,6 @@ const {
   defaultProviderForCountry,
   COUNTRY_PROVIDERS,
 } = require('../services/payment-providers');
-const { confirmDeposit } = require('../services/wallet');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 
 const router = express.Router();
@@ -146,12 +145,16 @@ router.post('/demo/confirm', express.urlencoded({ extended: true }), async (req,
         const { getAdapter } = require('../services/payment-providers');
         const adapter = getAdapter(provider);
         if (!adapter.isLive()) {
-          await confirmDeposit(reference);
+          // Route through the shared webhook dispatcher so wallet deposits,
+          // job payments and food-order payments all confirm the same way
+          // in demo mode as they do from real provider webhooks.
+          const { dispatchByReference } = require('./webhooks');
+          await dispatchByReference(reference, provider, {});
         } else {
           console.warn(`Refused demo confirm for live provider ${provider}`);
         }
       } catch (e) {
-        console.log('Demo confirmDeposit error:', e.message);
+        console.log('Demo confirm dispatch error:', e.message);
       }
     }
     const target = redirect + (redirect.includes('?') ? '&' : '?') + 'demo=' + action;
