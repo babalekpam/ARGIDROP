@@ -19,6 +19,7 @@ const paymentProviderEnum = pgEnum('payment_provider', [
   'FLUTTERWAVE', 'PAYSTACK', 'STRIPE', 'BANK_TRANSFER',
   'MTN_MOMO', 'ORANGE_MONEY', 'WAVE', 'MOOV', 'AIRTEL_MONEY', 'MPESA',
   'TMONEY', 'FLOOZ', 'VODAFONE_CASH', 'AIRTELTIGO_MONEY', 'TIGO_CASH', 'FREE_MONEY',
+  'WALLET', // internal — job funded from the merchant's ArgiDrop wallet
 ]);
 const docTypeEnum = pgEnum('doc_type', [
   // Identity

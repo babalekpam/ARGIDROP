@@ -36,6 +36,9 @@ export default function NewDeliveryScreen({ navigation }) {
   const [scheduleMode, setScheduleMode] = useState('now');
   const [scheduledDate, setScheduledDate] = useState(null);
   const [scheduledHour, setScheduledHour] = useState(null);
+  // Recurrence: null (one time) | 'DAILY' | 'WEEKLY'. Wallet-paid — the
+  // backend auto-funds each repeat from the merchant wallet.
+  const [recurrence, setRecurrence] = useState(null);
 
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -121,6 +124,8 @@ export default function NewDeliveryScreen({ navigation }) {
         currency: quote.currency,
         promoCode: promoApplied?.code || undefined,
         scheduledPickupAt: scheduledPickupAt ? scheduledPickupAt.toISOString() : undefined,
+        isRecurring: scheduledPickupAt && recurrence ? true : undefined,
+        recurrenceRule: scheduledPickupAt && recurrence ? recurrence : undefined,
       },
       quote,
       promoPreview: promoApplied || null,
@@ -210,7 +215,7 @@ export default function NewDeliveryScreen({ navigation }) {
           <View style={s.urgencyRow}>
             <TouchableOpacity
               style={[s.urgencyCard, scheduleMode === 'now' && s.urgencyCardActive]}
-              onPress={() => { setScheduleMode('now'); setScheduledDate(null); setScheduledHour(null); }}
+              onPress={() => { setScheduleMode('now'); setScheduledDate(null); setScheduledHour(null); setRecurrence(null); }}
             >
               <Text style={[s.urgencyLabel, scheduleMode === 'now' && { color: C.forest }]}>{t('newDelivery.scheduleNow', lang)}</Text>
               <Text style={[s.urgencySub, scheduleMode === 'now' && { color: C.forest }]}>{t('newDelivery.scheduleNowSub', lang)}</Text>
@@ -258,6 +263,26 @@ export default function NewDeliveryScreen({ navigation }) {
                     );
                   })}
                 </ScrollView>
+              </Field>
+
+              <Field label={t('newDelivery.repeat', lang)}>
+                <View style={s.pillRow}>
+                  {[
+                    { key: null, label: t('newDelivery.repeat.never', lang) },
+                    { key: 'DAILY', label: t('newDelivery.repeat.daily', lang) },
+                    { key: 'WEEKLY', label: t('newDelivery.repeat.weekly', lang) },
+                  ].map(opt => {
+                    const active = recurrence === opt.key;
+                    return (
+                      <TouchableOpacity key={String(opt.key)} style={[s.pill, active && s.pillActive]} onPress={() => setRecurrence(opt.key)}>
+                        <Text style={[s.pillText, active && s.pillTextActive]}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {recurrence && (
+                  <Text style={{ fontSize: 11, color: C.bronze, marginTop: 6, lineHeight: 15 }}>{t('newDelivery.repeatHint', lang)}</Text>
+                )}
               </Field>
 
               {scheduledPickupAt && (

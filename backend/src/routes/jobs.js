@@ -43,10 +43,11 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       currency: requestCurrency,
       promoCode,              // optional marketing code → discount + optional driver bonus
       stops,
-      // ─── Scheduled-delivery fields (Phase 1) ───
+      // ─── Scheduled-delivery fields ───
       // scheduledPickupAt: ISO timestamp ≥1h in the future and ≤90 days out
       // scheduledWindowEnd: optional ISO timestamp marking end of pickup window
-      // isRecurring + recurrenceRule: reserved for V2 (parent record only here)
+      // isRecurring + recurrenceRule ('DAILY' | 'WEEKLY'): the promoter cron
+      // clones the next occurrence each time one is promoted (wallet only)
       scheduledPickupAt: scheduledPickupAtRaw,
       scheduledWindowEnd: scheduledWindowEndRaw,
       isRecurring: isRecurringRaw,
@@ -83,6 +84,23 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
           return res.status(400).json({ success: false, code: 'INVALID_WINDOW', message: 'scheduledWindowEnd must be after scheduledPickupAt' });
         }
         scheduledWindowEnd = endAt;
+      }
+    }
+
+    // ─── Validate recurrence ───
+    // Each occurrence is auto-funded from the wallet when the promoter cron
+    // spawns it, so recurring jobs must be scheduled AND paid by wallet.
+    const isRecurring = !!isRecurringRaw;
+    const recurrenceRule = isRecurring ? String(recurrenceRuleRaw || '').toUpperCase() : null;
+    if (isRecurring) {
+      if (!isScheduled) {
+        return res.status(400).json({ success: false, code: 'RECURRING_NEEDS_SCHEDULE', message: 'Recurring deliveries must have a scheduledPickupAt' });
+      }
+      if (!['DAILY', 'WEEKLY'].includes(recurrenceRule)) {
+        return res.status(400).json({ success: false, code: 'INVALID_RECURRENCE', message: 'recurrenceRule must be DAILY or WEEKLY' });
+      }
+      if (paymentMethod !== 'wallet') {
+        return res.status(400).json({ success: false, code: 'RECURRING_NEEDS_WALLET', message: 'Recurring deliveries are paid from your wallet — each repeat is funded automatically' });
       }
     }
 
@@ -144,8 +162,8 @@ router.post('/', authenticate, requireRole('BUSINESS'), async (req, res, next) =
       paymentCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min to pay
       scheduledPickupAt,
       scheduledWindowEnd,
-      isRecurring: !!isRecurringRaw,
-      recurrenceRule: recurrenceRuleRaw || null,
+      isRecurring,
+      recurrenceRule,
       zoneId
     }).returning();
 
@@ -423,6 +441,36 @@ router.post('/:id/release-preclaim', authenticate, requireRole('DRIVER'), async 
 
     if (!updated) return res.status(404).json({ success: false, message: 'No pre-claim to release' });
     res.json({ success: true, job: updated });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /jobs/:id/stop-recurrence
+ * Business owner stops a recurring series: no further occurrences will be
+ * generated. The already-scheduled occurrence still runs (cancel it
+ * separately via POST /jobs/:id/cancel if needed).
+ */
+router.post('/:id/stop-recurrence', authenticate, requireRole('BUSINESS'), async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [business] = await db.select().from(businesses).where(eq(businesses.userId, req.user.id)).limit(1);
+    if (!business) return res.status(404).json({ success: false, message: 'Business profile not found' });
+
+    const [job] = await db.select().from(jobs)
+      .where(and(eq(jobs.id, req.params.id), eq(jobs.businessId, business.id))).limit(1);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job.isRecurring) return res.status(409).json({ success: false, message: 'This delivery is not recurring' });
+
+    // Turn off recurrence across the whole chain (root + every child) so no
+    // occurrence still carrying the flag spawns a successor at promotion time.
+    const rootId = job.recurrenceParentId || job.id;
+    await db.update(jobs).set({ isRecurring: false, updatedAt: new Date() })
+      .where(and(
+        eq(jobs.businessId, business.id),
+        or(eq(jobs.id, rootId), eq(jobs.recurrenceParentId, rootId))
+      ));
+
+    res.json({ success: true, message: 'Recurrence stopped — no further deliveries will be created' });
   } catch (err) { next(err); }
 });
 

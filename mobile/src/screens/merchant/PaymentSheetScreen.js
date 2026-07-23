@@ -24,6 +24,9 @@ export default function PaymentSheetScreen({ route, navigation }) {
   const { user } = useAuth();
   const { lang } = useLang();
   const country = user?.businessProfile?.country || 'TG';
+  // Recurring deliveries are wallet-funded (each repeat is auto-charged),
+  // so the momo provider picker is replaced by a wallet balance card.
+  const isRecurring = !!jobInput?.isRecurring;
 
   const [providers, setProviders] = useState([]);
   const [provider, setProvider] = useState(null); // selected code
@@ -31,6 +34,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
   const [phone, setPhone] = useState(user?.phone || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [walletBalance, setWalletBalance] = useState(null);
 
   // After job is created and we have a paymentUrl
   const [job, setJob] = useState(null);
@@ -40,6 +44,13 @@ export default function PaymentSheetScreen({ route, navigation }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (isRecurring) {
+      api.get('/wallets/balance')
+        .then(res => { if (!cancelled) setWalletBalance(res.data?.wallet || null); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setLoadingProviders(false); });
+      return () => { cancelled = true; };
+    }
     api.get('/payments/providers', { params: { country } })
       .then(res => {
         if (cancelled) return;
@@ -53,7 +64,7 @@ export default function PaymentSheetScreen({ route, navigation }) {
       })
       .finally(() => { if (!cancelled) setLoadingProviders(false); });
     return () => { cancelled = true; };
-  }, [country]);
+  }, [country, isRecurring]);
 
   // Stop polling on unmount
   useEffect(() => {
@@ -104,12 +115,17 @@ export default function PaymentSheetScreen({ route, navigation }) {
   }, [navigation]);
 
   const submit = async () => {
-    if (!provider) return Alert.alert(t('payment.pickProvider.title', lang), t('payment.pickProvider.body', lang));
-    if (!phone.trim()) return Alert.alert(t('payment.phoneRequired.title', lang), t('payment.phoneRequired.body', lang));
+    if (!isRecurring) {
+      if (!provider) return Alert.alert(t('payment.pickProvider.title', lang), t('payment.pickProvider.body', lang));
+      if (!phone.trim()) return Alert.alert(t('payment.phoneRequired.title', lang), t('payment.phoneRequired.body', lang));
+    }
     setSubmitting(true);
     setError('');
     try {
-      const res = await api.post('/jobs', {
+      const res = await api.post('/jobs', isRecurring ? {
+        ...jobInput,
+        paymentMethod: 'wallet',
+      } : {
         ...jobInput,
         paymentMethod: 'momo',
         paymentProvider: provider,
@@ -191,6 +207,22 @@ export default function PaymentSheetScreen({ route, navigation }) {
         <Text style={s.sectionLabel}>{t('payment.method', lang)}</Text>
         {loadingProviders ? (
           <ActivityIndicator color={C.forest} style={{ marginTop: 24 }} />
+        ) : isRecurring ? (
+          <View style={[s.provider, s.providerSelected]}>
+            <View style={[s.providerSwatch, { backgroundColor: C.forest }]}>
+              <Ionicons name="wallet-outline" size={18} color={C.paper} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.providerName}>{t('payment.wallet', lang)}</Text>
+              {walletBalance ? (
+                <Text style={{ fontSize: 12, color: parseFloat(walletBalance.available) >= dueAmount ? C.muted : C.red, marginTop: 2 }}>
+                  {t('payment.walletBalance', lang)}: {Math.round(parseFloat(walletBalance.available)).toLocaleString()} {walletBalance.currency || displayCurrency}
+                </Text>
+              ) : null}
+              <Text style={{ fontSize: 11, color: C.bronze, marginTop: 2 }}>{t('payment.walletRecurringNote', lang)}</Text>
+            </View>
+            <Ionicons name="radio-button-on" size={20} color={C.forest} />
+          </View>
         ) : providers.length === 0 ? (
           <Text style={{ color: C.muted, marginTop: 12 }}>{t('payment.noProviders', lang)}</Text>
         ) : (
@@ -227,22 +259,26 @@ export default function PaymentSheetScreen({ route, navigation }) {
           </View>
         )}
 
-        <Text style={[s.sectionLabel, { marginTop: 20 }]}>{t('payment.phoneLabel', lang)}</Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          style={s.input}
-          keyboardType="phone-pad"
-          placeholder="+228..."
-          placeholderTextColor={C.subtle}
-        />
+        {!isRecurring && (
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 20 }]}>{t('payment.phoneLabel', lang)}</Text>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              style={s.input}
+              keyboardType="phone-pad"
+              placeholder="+228..."
+              placeholderTextColor={C.subtle}
+            />
+          </>
+        )}
 
         {error ? <Text style={s.errText}>{error}</Text> : null}
 
         <TouchableOpacity
-          style={[s.btn, (!provider || submitting) && { opacity: 0.5 }]}
+          style={[s.btn, ((!isRecurring && !provider) || submitting) && { opacity: 0.5 }]}
           onPress={submit}
-          disabled={submitting || !provider}
+          disabled={submitting || (!isRecurring && !provider)}
         >
           {submitting
             ? <ActivityIndicator color={C.paper} />
